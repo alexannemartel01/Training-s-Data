@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alexanne's Training</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ── RESET & BASE ── */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { min-height: 100vh; background: #131211; color: #e8e4e1; font-family: 'Outfit', sans-serif; -webkit-font-smoothing: antialiased; }
+  ::selection { background: #B87A8A44; color: #fff; }
+  input, select, button, textarea { font-family: inherit; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+  select { -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 30px !important; }
+  input::placeholder, textarea::placeholder { color: #555; }
+
+  /* ── OVERLAYS ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(6px); }
+  .modal { background: #1c1a19; border: 1px solid #2a2725; border-radius: 14px; padding: 28px; width: 92%; max-width: 520px; max-height: 85vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+  .session-overlay { position: fixed; inset: 0; background: #131211; z-index: 200; display: flex; flex-direction: column; overflow-y: auto; }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn 0.25s ease; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .typing { animation: pulse 1.2s ease infinite; }
+  @keyframes timerPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+  @keyframes restPop { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+
+<script type="text/babel">
+const { useState, useMemo, useEffect, useRef, useCallback } = React;
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 1 — DONNÉES : EXERCICES
+// ══════════════════════════════════════════════════════════════
+const BASE_EXERCISES = [
+  { id: 1,   name: "Course (Treadmill / Extérieur)",     category: "Cardio",       type: "Endurance",    equipment: "Aucun",           frequency: 95, notes: "Présent dans quasi chaque séance. Intervalles (400m-1000m entre blocs), tempo runs, sprints, 5-10km. PR: 4:48min/km sur 2km. Vitesses habituelles: 10-14 km/h." },
+  { id: 2,   name: "SkiErg",                             category: "Cardio",       type: "Endurance",    equipment: "SkiErg",          frequency: 28, notes: "Station Hyrox clé. 250-2000m. Cadence cible: 32-36." },
+  { id: 3,   name: "Rowing / Rameur",                    category: "Cardio",       type: "Endurance",    equipment: "Rameur",          frequency: 25, notes: "250m-1000m. Cadence 24-28. Station Hyrox." },
+  { id: 4,   name: "Bike / Vélo stationnaire",           category: "Cardio",       type: "Endurance",    equipment: "Vélo",            frequency: 12, notes: "Zone 2, 6-15 min entre blocs. Cadence 80-90 rpm." },
+  { id: 5,   name: "StairMaster",                        category: "Cardio",       type: "Endurance",    equipment: "StairMaster",     frequency: 10, notes: "Finisher leg day. 10-15 min. Mode glute bias." },
+  { id: 6,   name: "Marche inclinée (Treadmill)",        category: "Cardio",       type: "Endurance",    equipment: "Tapis",           frequency: 5,  notes: "Incline 15, 3.5 km/h. Récupération active." },
+  { id: 10,  name: "Thrusters",                          category: "Full Body",    type: "Power",        equipment: "Barre / DB",      frequency: 45, notes: "Exercice signature. Barre ou DB 20-25lb. 10-20 reps." },
+  { id: 11,  name: "Burpees (toutes variantes)",         category: "Full Body",    type: "Power",        equipment: "Aucun",           frequency: 42, notes: "Broad jump, box jump, over plate, sync. 8-25 reps. Station Hyrox." },
+  { id: 12,  name: "KB Swing",                           category: "Full Body",    type: "Power",        equipment: "Kettlebell",      frequency: 38, notes: "16-20kg. 12-25 reps. Explosif, hauteur poitrine." },
+  { id: 13,  name: "Med Ball Slam",                      category: "Full Body",    type: "Power",        equipment: "Med Ball",        frequency: 22, notes: "20-30lb. 10-20 reps. Variante: rotational slam." },
+  { id: 14,  name: "Ball Over Shoulder",                 category: "Full Body",    type: "Power",        equipment: "Sandbag / Ball",  frequency: 15, notes: "40lb. 10-15 reps. Full body explosif." },
+  { id: 15,  name: "Plate Ground to Overhead",           category: "Full Body",    type: "Power",        equipment: "Plate",           frequency: 14, notes: "Plate 25-35lb. 10-15 reps." },
+  { id: 16,  name: "KB Clean to Press",                  category: "Full Body",    type: "Power",        equipment: "Kettlebell",      frequency: 13, notes: "8-10 reps/côté. Clean explosif → press." },
+  { id: 17,  name: "Devil's Press",                      category: "Full Body",    type: "Power",        equipment: "DB",              frequency: 5,  notes: "10 reps. Burpee + double DB snatch." },
+  { id: 18,  name: "DB Clean to Squat Press",            category: "Full Body",    type: "Power",        equipment: "DB",              frequency: 6,  notes: "10-12 reps. Clean + squat + press." },
+  { id: 20,  name: "Back Squat (Smith Machine)",         category: "Jambes",       type: "Force",        equipment: "Smith Machine",   frequency: 18, notes: "4×8-10. Progression: 135→155lb. Focus glutes." },
+  { id: 21,  name: "Walking Lunges (chargées)",          category: "Jambes",       type: "Force",        equipment: "DB / Plate / Barre", frequency: 32, notes: "Station Hyrox. 20-50 pas. Charge: 10kg plate, 2×25lb DB." },
+  { id: 22,  name: "Box Jump",                           category: "Jambes",       type: "Pliométrie",   equipment: "Box",             frequency: 25, notes: "12-25 reps. Variantes: overs, step-down, squat box jump." },
+  { id: 23,  name: "Goblet Squat (KB)",                  category: "Jambes",       type: "Force",        equipment: "Kettlebell",      frequency: 10, notes: "KB 20kg. 12 reps. Profondeur maximale." },
+  { id: 24,  name: "Jump Squat / Jump Lunge",            category: "Jambes",       type: "Pliométrie",   equipment: "Aucun / DB",      frequency: 15, notes: "10-20 reps. Explosivité pure." },
+  { id: 25,  name: "Leg Press — Glute Bias",             category: "Jambes",       type: "Hypertrophie", equipment: "Machine",         frequency: 12, notes: "12-15 reps. Progression: 150→310lb. RPE 9-9.5." },
+  { id: 26,  name: "Hack Press / Lying Press",           category: "Jambes",       type: "Hypertrophie", equipment: "Machine",         frequency: 12, notes: "10-12 reps. Drop sets: 360→90lb." },
+  { id: 27,  name: "KB Step-ups",                        category: "Jambes",       type: "Force",        equipment: "Kettlebell / Box", frequency: 8,  notes: "8-12/jambe. Excellent unilatéral." },
+  { id: 28,  name: "Landmine Cyclist Squat",             category: "Jambes",       type: "Renfo Course", equipment: "Landmine",        frequency: 4,  notes: "3×12. Spécifique course." },
+  { id: 30,  name: "Romanian Deadlift (RDL)",            category: "Postérieur",   type: "Force",        equipment: "Barre / Smith",   frequency: 28, notes: "4×8-10. Progression: 115→145lb. Tempo 3 sec descente." },
+  { id: 31,  name: "Hip Thrust (Smith Machine)",         category: "Postérieur",   type: "Hypertrophie", equipment: "Smith Machine",   frequency: 14, notes: "3×10-12. Progression: 115→175lb." },
+  { id: 32,  name: "Elevated Split Squat (Glute Bias)",  category: "Postérieur",   type: "Force",        equipment: "DB",              frequency: 12, notes: "8-12/jambe. DB 2×20-25lb. Version fessier." },
+  { id: 33,  name: "Single-Leg RDL",                     category: "Postérieur",   type: "Stabilité",    equipment: "KB / Landmine",   frequency: 12, notes: "8-15/jambe. Unilatéral clé pour la course." },
+  { id: 34,  name: "Hip Abduction — Externe",            category: "Postérieur",   type: "Activation",   equipment: "Machine",         frequency: 11, notes: "20 reps. Progression: 70→185lb." },
+  { id: 35,  name: "Hip Abduction — Interne",            category: "Postérieur",   type: "Activation",   equipment: "Machine",         frequency: 11, notes: "15 reps. Progression: 50→140lb." },
+  { id: 36,  name: "Seated Leg Curl (Tempo)",            category: "Postérieur",   type: "Hypertrophie", equipment: "Machine",         frequency: 10, notes: "8-10 reps, 3 sec descente. 80→140lb." },
+  { id: 37,  name: "Seated Leg Curl (Force + Squeeze)",  category: "Postérieur",   type: "Hypertrophie", equipment: "Machine",         frequency: 10, notes: "12-15 reps. 70→110lb." },
+  { id: 38,  name: "Cable Kickback",                     category: "Postérieur",   type: "Isolation",    equipment: "Câble",           frequency: 8,  notes: "15/jambe. 17-30lb. Tempo: 2s pause haut." },
+  { id: 39,  name: "Cable Abduction",                    category: "Postérieur",   type: "Isolation",    equipment: "Câble",           frequency: 8,  notes: "15-20/jambe. Cible glute med." },
+  { id: 40,  name: "Glute Bridge / March",               category: "Postérieur",   type: "Activation",   equipment: "Sol / KB",        frequency: 6,  notes: "12-15 reps. KB sur bassin." },
+  { id: 41,  name: "Deadlift (Barre)",                   category: "Postérieur",   type: "Force",        equipment: "Barre",           frequency: 12, notes: "Conventionnel ou trap bar. 8-20 reps." },
+  { id: 50,  name: "Push-ups (toutes variantes)",        category: "Upper Push",   type: "Force",        equipment: "Aucun",           frequency: 38, notes: "10-25 reps. Tempo, shoulder tap, renegade combo." },
+  { id: 51,  name: "Push Press (DB/Barre)",              category: "Upper Push",   type: "Power",        equipment: "DB / Barre",      frequency: 14, notes: "8-12 reps. Explosif." },
+  { id: 52,  name: "Bench Press (DB/Machine)",           category: "Upper Push",   type: "Force",        equipment: "DB / Machine",    frequency: 8,  notes: "8-12 reps. DB 20-30lb." },
+  { id: 53,  name: "Dips (Machine/Anneaux/Box)",         category: "Upper Push",   type: "Force",        equipment: "Machine / Anneaux", frequency: 7, notes: "6-12 reps. Progression calisthenics." },
+  { id: 54,  name: "Pike Press",                         category: "Upper Push",   type: "Calisthenics", equipment: "Box / Sol",       frequency: 5,  notes: "6-8 reps. Simulation mini HSPU." },
+  { id: 55,  name: "Shoulder Press (Machine)",           category: "Upper Push",   type: "Force",        equipment: "Machine",         frequency: 4,  notes: "8-10 reps. 40-60lb." },
+  { id: 60,  name: "Renegade Row",                       category: "Upper Pull",   type: "Force",        equipment: "DB",              frequency: 14, notes: "6-12/bras. Anti-rotation + dos." },
+  { id: 61,  name: "KB/DB Row (Bent-Over)",              category: "Upper Pull",   type: "Force",        equipment: "KB / DB",         frequency: 12, notes: "10-12/bras. Gorilla row, single-arm." },
+  { id: 62,  name: "Pull-ups (Strict/Cluster/Negative)", category: "Upper Pull",   type: "Calisthenics", equipment: "Barre",           frequency: 8,  notes: "Clusters 1+1+1. Negatives 2-3s." },
+  { id: 63,  name: "Dead Hang",                          category: "Upper Pull",   type: "Grip",         equipment: "Barre",           frequency: 10, notes: "20-40 sec. Hollow position." },
+  { id: 64,  name: "Toes-to-Bar (T2B)",                  category: "Upper Pull",   type: "Calisthenics", equipment: "Barre",           frequency: 7,  notes: "4-8 reps. Travail strict." },
+  { id: 65,  name: "Seated Row (Machine)",               category: "Upper Pull",   type: "Force",        equipment: "Machine",         frequency: 4,  notes: "10-12 reps. 70-80lb." },
+  { id: 66,  name: "Lat Pulldown",                       category: "Upper Pull",   type: "Force",        equipment: "Machine",         frequency: 3,  notes: "8 reps. 90lb." },
+  { id: 67,  name: "Barbell Row",                        category: "Upper Pull",   type: "Force",        equipment: "Barre",           frequency: 6,  notes: "50lb, 12-20 reps." },
+  { id: 68,  name: "Inverted Row",                       category: "Upper Pull",   type: "Calisthenics", equipment: "Barre / TRX",     frequency: 4,  notes: "10-12 reps. Tempo 2-1-2." },
+  { id: 70,  name: "Plank (toutes variantes)",           category: "Core",         type: "Stabilité",    equipment: "Aucun",           frequency: 28, notes: "30-60 sec. Side plank, shoulder tap, spider man." },
+  { id: 71,  name: "Russian Twist",                      category: "Core",         type: "Rotation",     equipment: "Med Ball / KB / Plate", frequency: 15, notes: "12-20 reps. Obliques." },
+  { id: 72,  name: "Around the World (Plate/KB)",        category: "Core",         type: "Rotation",     equipment: "Plate / KB",      frequency: 14, notes: "10/sens. Plate 25-35lb." },
+  { id: 73,  name: "Side Bends (KB)",                    category: "Core",         type: "Obliques",     equipment: "KB",              frequency: 12, notes: "10-12/côté." },
+  { id: 74,  name: "V-Ups",                              category: "Core",         type: "Dynamique",    equipment: "Plate / DB",      frequency: 10, notes: "10-12 reps. Contrôle lent." },
+  { id: 75,  name: "Sit-ups (Weighted)",                 category: "Core",         type: "Dynamique",    equipment: "Plate / DB",      frequency: 12, notes: "12-15 reps. Plate 25lb." },
+  { id: 76,  name: "Hollow Hold / Rocks",                category: "Core",         type: "Stabilité",    equipment: "Aucun",           frequency: 8,  notes: "20-30 sec. Forme banane." },
+  { id: 77,  name: "Mountain Climbers",                  category: "Core",         type: "Dynamique",    equipment: "Aucun",           frequency: 12, notes: "20-50 reps. Finisher." },
+  { id: 78,  name: "Rainbow Press (Plate)",              category: "Core",         type: "Rotation",     equipment: "Plate",           frequency: 8,  notes: "8-12/sens. Obliques + épaules." },
+  { id: 79,  name: "Bear Pose KB Pull-Thru",             category: "Core",         type: "Stabilité",    equipment: "KB",              frequency: 8,  notes: "10/côté. Anti-rotation." },
+  { id: 80,  name: "Plate Halo",                         category: "Core",         type: "Mobilité",     equipment: "Plate / KB",      frequency: 10, notes: "10-16 reps. Mobilité épaules." },
+  { id: 81,  name: "Iron Trident",                       category: "Core",         type: "Dynamique",    equipment: "Plate / KB",      frequency: 5,  notes: "15-20 reps. KB 35lb." },
+  { id: 82,  name: "Dead Bug (Weighted)",                category: "Core",         type: "Stabilité",    equipment: "DB / KB",         frequency: 6,  notes: "10/côté. Anti-extension." },
+  { id: 83,  name: "Incline Bench Crunch",               category: "Core",         type: "Dynamique",    equipment: "Banc / Plate",    frequency: 8,  notes: "8-12 reps. Plate 25-35lb." },
+  { id: 84,  name: "Flutter Kicks",                      category: "Core",         type: "Endurance",    equipment: "Aucun",           frequency: 6,  notes: "20-30 reps." },
+  { id: 85,  name: "Hanging Leg Raise",                  category: "Core",         type: "Dynamique",    equipment: "Barre",           frequency: 6,  notes: "10-12 reps. Contrôle." },
+  { id: 90,  name: "Sled Push",                          category: "Strongman",    type: "Power",        equipment: "Sled",            frequency: 20, notes: "Station Hyrox. 3-4 allées. 4×45lb." },
+  { id: 91,  name: "Sled Pull",                          category: "Strongman",    type: "Power",        equipment: "Sled",            frequency: 18, notes: "Station Hyrox. Corde ou harnais. ~78kg." },
+  { id: 92,  name: "Farmer Carry",                       category: "Strongman",    type: "Grip / Core",  equipment: "KB / DB",         frequency: 16, notes: "Station Hyrox. 2×16-20kg. 40-100 pas." },
+  { id: 93,  name: "Tire Flip",                          category: "Strongman",    type: "Power",        equipment: "Pneu",            frequency: 12, notes: "6-8 flips." },
+  { id: 94,  name: "Wall Balls",                         category: "Strongman",    type: "Endurance",    equipment: "Med Ball",        frequency: 18, notes: "Station Hyrox. 14-20lb. 20-100 reps." },
+  { id: 95,  name: "Sandbag Walking Lunge",              category: "Strongman",    type: "Force",        equipment: "Sandbag",         frequency: 6,  notes: "24-50 reps. Charge lourde." },
+  { id: 96,  name: "Suitcase Carry",                     category: "Strongman",    type: "Core / Grip",  equipment: "KB / DB",         frequency: 5,  notes: "20 pas/bras. Anti-flexion latérale." },
+  { id: 97,  name: "Overhead Carry / March",             category: "Strongman",    type: "Stabilité",    equipment: "Plate / KB",      frequency: 8,  notes: "20-30 pas. Plate 35lb." },
+  { id: 100, name: "Handstand Wall Hold",                category: "Calisthenics", type: "Skill",        equipment: "Mur",             frequency: 5,  notes: "3×25-35 sec. Progression vers HSPU." },
+  { id: 101, name: "Crow Pose",                          category: "Calisthenics", type: "Skill",        equipment: "Sol",             frequency: 4,  notes: "2-3×30 sec." },
+  { id: 102, name: "L-Sit Hold",                         category: "Calisthenics", type: "Skill",        equipment: "Sol / Parallettes", frequency: 4, notes: "10-20 sec." },
+  { id: 110, name: "Tibialis Raises",                    category: "Renfo Course", type: "Prévention",   equipment: "Aucun",           frequency: 8,  notes: "20 reps. Prévention périostite." },
+  { id: 111, name: "Standing Calf Raise (Landmine)",     category: "Renfo Course", type: "Force",        equipment: "Landmine",        frequency: 6,  notes: "12 reps. +80-100lb." },
+  { id: 112, name: "Step-Down Lent",                     category: "Renfo Course", type: "Stabilité",    equipment: "Box",             frequency: 4,  notes: "8/jambe. Contrôle excentrique." },
+  { id: 113, name: "Cossack Squat",                      category: "Renfo Course", type: "Mobilité",     equipment: "Aucun",           frequency: 3,  notes: "8/côté. Mobilité hanches." },
+  { id: 114, name: "Landmine Single-Leg RDL",            category: "Renfo Course", type: "Force",        equipment: "Landmine",        frequency: 4,  notes: "8/jambe." },
+  { id: 115, name: "Landmine Lateral Squat",             category: "Renfo Course", type: "Force",        equipment: "Landmine",        frequency: 4,  notes: "8/côté." },
+  { id: 116, name: "Trap Bar Deadlift",                  category: "Renfo Course", type: "Force",        equipment: "Trap Bar",        frequency: 3,  notes: "3×12." },
+];
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 2 — DONNÉES : ROUTINES
+// ══════════════════════════════════════════════════════════════
+const BASE_ROUTINES = [
+  { id: "hyrox-solo",      name: "Hyrox Simulation Solo",        duration: "~1h05",   type: "Hyrox",        difficulty: 5, description: "Simulation complète 8 stations + course.", blocks: ["800m course @ 11.5 km/h → 20 Thrusters","800m → 30 Lunges (2×25lb)","800m → 20 Deadlifts","800m → 20 Burpee Box Jump","800m → 20 Tirage dos","800m → 20 Around the World (35lb)","800m → 20 Push-ups","800m → 20 Box Jumps","Finisher: 400m sprint + 15 Burpees + 20 Air Squats + 50 Mountain Climbers"] },
+  { id: "hyrox-test",      name: "Hyrox Fitness Test",           duration: "~35 min", type: "Hyrox",        difficulty: 5, description: "Test de condition physique format Hyrox. PR: 34min57.", blocks: ["1000m run 2% incline","50 Burpees Broad Jump","100 Lunges","1000m Row","100 Wall Balls 4kg","4 rounds: 10 Thrusters 20lb + 300m SkiErg"] },
+  { id: "demi-hyrox-duo",  name: "Demi-Hyrox Duo",               duration: "< 35 min",type: "Hyrox",        difficulty: 4, description: "Format officiel duo. Objectif sous 35 min.", blocks: ["500m Run → SkiErg 500m","500m Run → Burpee Broad Jump 40m","500m Run → Rowing 500m","500m Run → Farmer Carry 100m","500m Run → Walking Lunges 50m","500m Run → Wall Balls 50 reps","500m Run → Sled Push","500m Run → Sled Pull"] },
+  { id: "leg-day-glute",   name: "Leg Day — Glute Dominant",     duration: "60-75 min",type: "Hypertrophie", difficulty: 4, description: "Leg day principal avec progression de charges.", blocks: ["Back Squat 4×8-10 (150lb) + RDL 4×8-10 (145lb)","Hip Thrust 3×10-12 (175lb) + Elevated Split Squat 3×10/jambe","Cable Kickback 15/jambe + Cable Abduction 15/jambe","Incline Bench Crunch 3×12 + Deficit Sit-Up 3×12","StairMaster 10 min"] },
+  { id: "leg-day-machine", name: "Leg Day — Machines",           duration: "60 min",  type: "Hypertrophie", difficulty: 4, description: "Séance machines. Progression leg press et hack press.", blocks: ["Hip Abduction Externe ×20 + Interne ×15","Seated Leg Curl Tempo 3s + Force+Squeeze","Leg Press Glute Bias + Hack Press Drop Set (360→90lb)","Incline Crunch (35lb) + Glute Squeeze (45lb)","StairMaster 10-15 min"] },
+  { id: "hybride-type",    name: "WOD Hybride Type",             duration: "45-60 min",type: "Hybride",      difficulty: 3, description: "Blocs alternant course et circuits de force.", blocks: ["500m Run","BLOC 1 (×3): Thrusters ×12 + Box Jump ×12 + RDL+Row ×8/côté + Push-ups ×12","500m Run","BLOC 2 (×3): Med Ball Slam ×15 + Broad Jump ×6 + Plate GTO ×12 + Plank Tap ×20","500m Run","BLOC 3: Around-the-World ×10 + Overhead March ×20 + Side Plank ×10/côté","Finisher: Tire Flip + Burpees × 3 allées"] },
+  { id: "calisthenics",    name: "Calisthenics / Barre",         duration: "45-60 min",type: "Calisthenics", difficulty: 3, description: "Progression pull-ups, T2B, handstand. Objectif: muscle-up.", blocks: ["Dead Hang 3×35s + Scap Pull-Ups 3×8 + Cluster Pull-Ups (1+1+1)×3 + T2B 3×6","Handstand Wall Hold 3×30s + Shoulder Taps 3×10 + Crow Pose 2×30s","Dips 4×6-8 + Push-Up Tempo 10 + Pike Press 8-10","L-Sit 10-15s + Plank to Pike 10 + Hollow Rocks 15-20"] },
+  { id: "renfo-course",    name: "Renforcement Course",          duration: "45-60 min",type: "Renfo Course", difficulty: 3, description: "Mécanique et résistance en course.", blocks: ["Bike 6 min + Standing Calf Raise ×12 + Cyclist Squat ×12","Bike 6 min + Seated Calf Raise ×12 + Trap Bar Deadlift ×12","Bike 6 min + Landmine Lateral Squat ×8/côté + Tibialis Raises ×20","Bike 6 min + Single-Leg RDL ×8/jambe + Step-Back Lunge ×8/jambe"] },
+  { id: "power-duo",       name: "Power Duo",                    duration: "45-55 min",type: "Duo",          difficulty: 3, description: "WOD en duo. Alternance travail/repos.", blocks: ["400m Course ensemble","Ball Slam ×12 + Broad Jump ×8 + Thrusters ×10 + Bench Hop ×12","You Go I Go: Brouette + Walking Lunges + RDL+Row + Push-Up Challenge","KB Swing ×15 + Burpee Sync ×10 + Plank High Five ×20","Core Duo: Med Ball Pass + Side Plank Reach + Partner Wall Sit"] },
+  { id: "sled-tire",       name: "Sled + Tire Power",            duration: "30-40 min",type: "Strongman",    difficulty: 4, description: "Session dédiée sled et tire flip.", blocks: ["500m Run","Sled Push 4 allées + Pull 4 retours","Tire Flip + Burpees × 3 allées","Side Bends + Around-the-World + Overhead March","500m Run final"] },
+  { id: "upper-push",      name: "Upper Body — Push",            duration: "50-60 min",type: "Hypertrophie", difficulty: 3, description: "Poitrine, épaules, triceps.", blocks: ["Bench Press DB 4×10 (25-30lb) + Push-ups Tempo 3×12","Shoulder Press Machine 3×10 + Pike Press 3×8","Dips Machine 3×10 + Push Press DB 3×8","FINISHER: 100 Push-ups (séries de 15-20)"] },
+  { id: "upper-pull",      name: "Upper Body — Pull",            duration: "50-60 min",type: "Hypertrophie", difficulty: 3, description: "Dorsaux, biceps, grip.", blocks: ["Dead Hang 3×30s + Scap Pull-Ups 3×10 + Pull-Up Clusters 4×(1+1+1)","Seated Row 4×10 (80lb) + Lat Pulldown 3×8 (90lb)","Renegade Row 3×8/bras + Barbell Row 3×12","T2B 3×max + Inverted Row 3×10"] },
+  { id: "express-30",      name: "Full Body Express",            duration: "30 min",  type: "Hybride",      difficulty: 4, description: "30 min, zéro repos prévu.", blocks: ["400m Run","AMRAP 8 min: 10 Thrusters + 10 Burpees + 10 KB Swings","400m Run","AMRAP 8 min: 10 Box Jumps + 10 Push-ups + 10 Med Ball Slams","400m Run sprint final"] },
+  { id: "core-blast",      name: "Core Destroyer",               duration: "30-40 min",type: "Hybride",      difficulty: 3, description: "100% core: rotation, stabilité, anti-extension.", blocks: ["(×3) Around the World ×10/sens + Russian Twist ×20 + Plate Halo ×12","(×3) Hollow Hold 30s + Bear Pose Pull-Thru ×10/côté + Dead Bug ×10/côté","(×3) V-Ups ×12 + Side Bends ×12/côté + Mountain Climbers ×30","FINISHER: Plank 60s + Flutter Kicks ×30 + Hanging Leg Raise ×10"] },
+  { id: "cardio-z2",       name: "Cardio Long — Zone 2",         duration: "60-75 min",type: "Cardio",       difficulty: 2, description: "Cardio basse intensité. FC < 140bpm.", blocks: ["15 min Vélo Zone 2 (cadence 85 rpm)","15 min Tapis incline walk (incline 12, 4.0 km/h)","15 min Rameur cadence 22-24","10 min SkiErg cadence 28-30","10 min Marche cool down"] },
+  { id: "hyrox-stations",  name: "Hyrox Stations Drill",         duration: "40-50 min",type: "Hyrox",        difficulty: 4, description: "Focus technique par station + transitions.", blocks: ["SkiErg 1000m → 200m Run → SkiErg 500m","Sled Push 3 allées + Sled Pull 3 retours (90s repos)","3 rounds: Farmer Carry 50m + 200m Run","Wall Balls 25-25-25-25 reps (45s repos)","Burpee Broad Jump 20m × 4 allers"] },
+  { id: "glute-activ",     name: "Glute Activation + Volume",    duration: "50-60 min",type: "Hypertrophie", difficulty: 3, description: "Activation ciblée puis volume.", blocks: ["ACTIVATION: Hip Abduction Ext ×20 + Int ×15 + Glute Bridge ×15","Hip Thrust 4×12 + Single-Leg RDL 3×10/jambe","Elevated Split Squat 3×10/jambe + Cable Kickback 3×15/jambe","Cable Abduction 3×15/jambe + Glute Bridge March ×12/jambe","StairMaster 12 min glute bias"] },
+  { id: "lower-plyo",      name: "Lower Body Explosif",          duration: "45 min",  type: "Hybride",      difficulty: 4, description: "Pliométrie et puissance des jambes.", blocks: ["WARM-UP: 400m jog + Goblet Squat ×12 + Jump Lunge ×10","(×4) Box Jump ×10 + Jump Squat ×12 + Broad Jump ×8","(×3) Walking Lunges 20 pas (25lb) + KB Swing ×15","(×3) KB Step-ups ×10/jambe + Squat Hold 30s","FINISHER: 200m sprint + 15 Burpee Box Jump + 200m sprint"] },
+  { id: "grip-carry",      name: "Grip & Carry Challenge",       duration: "35-45 min",type: "Strongman",    difficulty: 4, description: "Force de grip et carries.", blocks: ["Dead Hang 3×max + Farmer Carry 4×50m (2×20kg)","Suitcase Carry 3×30m/bras + Overhead Carry 3×30m","(×3) Tire Flip ×6 → Sled Push 1 allée → Sled Pull 1 retour","FINISHER: Farmer Carry max distance (2 min)"] },
+  { id: "recovery",        name: "Active Recovery",              duration: "40-50 min",type: "Récupération", difficulty: 1, description: "Jour de récupération. Mobilité et mouvement léger.", blocks: ["15 min Marche inclinée (incline 10, 3.5 km/h)","Cossack Squat ×8/côté + World's Greatest Stretch ×5/côté","Dead Bug ×8/côté + Plank 30s + Bird Dog ×8/côté","10 min Vélo Zone 1","Étirements: 5 min hanches + ischios"] },
+];
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 3 — DONNÉES : JOURNAL (146 séances historiques)
+// ══════════════════════════════════════════════════════════════
+const BASE_JOURNAL = [
+  {date:"2026-04-21",routine:"Chipper Sprint Mode",type:"Hybride",duration:"50 min",blocks:["Course 650m","Thrusters ×20","Course 650m","Lunges (2×25lb) ×20","Course 650m","Deadlifts ×20","Course 650m","Burpee ×20","Course 650m","Barbell Row ×20","Course 650m","Around the World (35lb) ×20","Course 650m","Push-ups ×20","Course 650m","Box Jumps ×20","Finisher: Course 200m sprint + Burpees ×20 + Air Squats ×20 + Mountain Climbers ×40"],notes:"Chipper sprint mode, 8 blocs cardio-exo, focus intensité anaérobie et conditioning"},
+  {date:"2026-04-20",routine:"6km Course Z2",type:"Renfo Course",duration:"50min",blocks:[],notes:""},
+  {date:"2026-04-19",routine:"Workout Sled POWER / KB complex",type:"Strongman",duration:"60 min",blocks:["BLOC 1 — Sled Push 4 allées","Allée 1: 8 plates","Allée 2: 10 plates","Allée 3: 11 plates","Allée 4: 12 plates","Allée 5: 12 plates","1min Vélo","Sled Pull 4 allées","Allée 1: 8 plates","Allée 2: 8 plates","Allée 3: 9 plates","Allée 4: 9 plates","1min Vélo","Lunges one side KB (17lb) 4 allées","1min Vélo","BLOC 2 — KB complex (3 rounds)","6x row","6x swing","6x clean and press","6x push-up /côté","6x burpees","BLOC 3","30x burpees"],notes:""},
+  {date:"2026-04-18",routine:"Full Body Power + Core",type:"Strongman",duration:"75 min",blocks:["BLOC 1 — Trap bar deadlift","Round 1: 90lb x10","Round 2: 140lb x5","Round 3: 140lb x5","Round 4: 150lb x4","Round 5: 140lb x5","BLOC 2 — Sled (en bas)","3 aller-retour x 5 plates","1 aller-retour x 6 plates","BLOC 3 (3 rounds)","Ball over shoulder × 10","Ball RDL to Overhead × 10","Ball rotational throw × 6"],notes:"Complex KB sans pause, core dynamique, cardio récupération"},
+  {date:"2026-04-17",routine:"Course Z2 Parc du Coteau",type:"Renfo Course",duration:"45min",blocks:["5km"],notes:""},
+  {date:"2026-04-17",routine:"Coach Will",type:"Renfo Course",duration:"1h",blocks:["Travail d'amortissement / KB complex"],notes:""},
+  {date:"2026-04-16",routine:"Leg Day Heavy + Renfo Course + Run",type:"Hybride",duration:"90 min",blocks:["BLOC 1 — Back Squat","Round 1: 90lb x10","Round 2: 140lb x10","Round 3: 160lb x8","Round 4: 190lb x8","Hip Thrust 4 rounds 190lb × 8","BLOC 2 (3 rounds)","Landmine RDL x10 (barre+80lb)","Landmine Calf Raise x15 (barre+80lb)","Landmine Lateral Squat x6/côté (KB 35lb)","BLOC 3 (3 rounds)","Step-Down Contrôlé x6/jambe","Tibialis Raise x20","BLOC 4","Stair Master 15min (6-10)"],notes:"Heavy squats, glute focus, renfo course, cardio Z2 finisher. RPE 8"},
+  {date:"2026-04-14",routine:"Hybrid MetCon",type:"Hybride",duration:"~45-50 min",blocks:["400m Run","KB Deadlifts 15 reps (16 lbs)","Push Press 20 reps (25 lbs DBs)","Rowing 500m","Overhead Lunges 20 reps (25 lbs, 8/leg)","Burpees over Plate 15 reps"],notes:"3 rounds. Cardio + force + stabilité. Prép Hyrox/endurance"},
+  {date:"2026-04-13",routine:"Course Z2",type:"Renfo Course",duration:"20min",blocks:["Mal au cheville/pied"],notes:"Mal au cheville/pied"},
+  {date:"2026-04-12",routine:"Course Z2",type:"Hybride",duration:"30min",blocks:["3,5km"],notes:""},
+  {date:"2026-04-11",routine:"Demi-Hyrox Duo Compétition",type:"Hyrox",duration:"34 min 10 sec",blocks:["Demi-Hyrox Duo - 34:10"],notes:"Compétition 11 avril – Performance en duo"},
+  {date:"2026-04-10",routine:"Course Z2",type:"Renfo Course",duration:"25min",blocks:["4Km/h"],notes:""},
+  {date:"2026-04-08",routine:"Stair Master",type:"Récupération",duration:"45min",blocks:["5"],notes:""},
+  {date:"2026-04-07",routine:"WOD Hybride",type:"Hybride",duration:"~45 min",blocks:["Gorilla KB burpees x 1 allée","Lunge + Clean + Single arm squat x 1 allée","Side to side jump avec KB x 20","Burpees avec barre x 8","Side plank reach x 8","Pont avec jambe alterné x 30"],notes:""},
+  {date:"2026-04-06",routine:"Renfo Course",type:"Renfo Course",duration:"~60 min",blocks:["400 m run (10–10.5)","Ball over shoulder × 10","Ball overhead × 10","Ball on knees rainbow × 10","STABILITY","Step-down × 8 / jambe","Single leg RDL × 8 / jambe (léger)","Tibialis raises × 20","CORE","Plank × 45 sec","Dead bug × 10 / côté","Pont avec jambe × 10 / côté","Side plank × 30 sec / côté"],notes:""},
+  {date:"2026-04-05",routine:"Hyrox Drill",type:"Hyrox",duration:"~30 min",blocks:["Simul hyrox sans course"],notes:""},
+  {date:"2026-04-03",routine:"WOD Hybride",type:"Hybride",duration:"~30 min",blocks:["Renfo/ antoine"],notes:""},
+  {date:"2026-04-02",routine:"Sled + Tire Power",type:"Strongman",duration:"~75 min",blocks:["POWER","400 m run (10.5)","Ball over shoulder × 10 (40 lb)","Ball overhead (RDL + press) × 10","Goblet squat  × 12","Ball side-to-side × 10","CORE","400 m run","Plank high five × 20","Renegade row × 10 / bras","Ball pass chair × 16","Planche  × 45 sec","FINISHER","3–4 rounds","Sled push — 20 m","Tire flips — 6–8"],notes:""},
+  {date:"2026-04-01",routine:"Renfo Course",type:"Renfo Course",duration:"~75 min",blocks:["Réchaud","Step-down lent × 8 / jambe","Cossack squat rebond × 8 / côté","Tibialis raises × 20","Landmine","Single leg RDL","8 / côté","barre + 25lb","Chair landmine press","10 / côté","barre + 25lb","Deep Squat Landmine","10 / côté","barre + 25lb","Mollet","10 / côté","barre + 25lb","Landmine rotation (anti-rotation contrôlée)","10 / côté","barre"],notes:""},
+  {date:"2026-03-31",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["600 m run (10.5 km/h)","15 KB swings (45 lb)","12 goblet squats (50 lb)","10 push-ups","500m SkiErg","12 KB clean & press / bras","15 wall balls","20 mountain climbers","2000m skierg","5 allée retour","Sled push","Sled pull","3x35lb","3x45lb","2x25lb"],notes:""},
+  {date:"2026-03-30",routine:"Cardio",type:"Cardio",duration:"~30 min",blocks:["Course / Marche dehors"],notes:""},
+  {date:"2026-03-28",routine:"WOD Hybride",type:"Hybride",duration:"~30 min",blocks:["Core Workout"],notes:""},
+  {date:"2026-03-27",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["WARM UP FLOW","400m course (10,5)","KB Halo × 6 / sens\nScap push-ups × 12\nUp and down Plank  × 12","PUSH / PULL POWER CONTROL","400m course (10,5)","Circuit 3 rounds (sans poser KB) :","KB Clean × 6 / côté","KB Push Press × 6 / côté","KB Front Rack Squat × 12 (contrôle)","KB Bent-over Row × 12","2 min vélo"],notes:""},
+  {date:"2026-03-26",routine:"Renfo Course",type:"Renfo Course",duration:"~60 min",blocks:["400 m run (10.5 km/h)","12 trusters","12 KB swings (mauve)","1. Step-up lourd (box)","8 / jambe (2 × 30 lb)","RDL (landmine)","10 reps (barre + 55 lb)","Landmine squat","10 reps (barre + 65 lb)","Standing calf raise lourd × 12","+80–100 lb","Tibialis raises × 20"],notes:""},
+  {date:"2026-03-24",routine:"Cardio",type:"Cardio",duration:"~30 min",blocks:["600 m run","FORCE RUNNER (OPTIMISÉ)","Renfo Mollet / tibia"],notes:""},
+  {date:"2026-03-22",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["6 min Bike","15 KB swings (jaune)","10 push-ups","15 KB high pull (mauve)","Plate overhead × 12","Bench press (DB) × 12","Bench fly x12","CARRY & CORE (clé pour toi)","Suitcase Carry lourd × 40 m / côté\n\t•\tOverhead Carry × 30 m\n\t•\tFront Rack Carry × 30 m"],notes:""},
+  {date:"2026-03-21",routine:"WOD Hybride",type:"Hybride",duration:"~45 min",blocks:["TEMPO RUN FLOW","1000 m run","vitesse : 10.5 km/h (steady, constant)","12 KB goblet squats","12 KB swings","Weighted lunges - 3 allés"],notes:""},
+  {date:"2026-03-20",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["Alternance rameur :","Box step Over (box) - 10 reps","Push-Up + Shoulder Tap - 10 taps","Reverse Lunge to High Knee (DB) - 8 / jambe","Single-Arm DB Push Press - 8 / bras","CORE","Side bends — 10 / côté (KB mauve)","Around-the-World — 6 / côté (plate 35lb)","Overhead March — 20 pas (plate 35lb)"],notes:""},
+  {date:"2026-03-19",routine:"Renfo Course",type:"Renfo Course",duration:"~75 min",blocks:["INTERVALLES PROPRES","600 run (4Km total)","Allure 10km/h","FORCE RUNNER","1. Deep squat (landmine)","10reps (barre + 45lb)","2.Standing calf raise","12 reps (barre + 45lb)","3.RDL (landmine )","15 reps (barre + 45lb)","4.Tibialis raises","20 reps","STRIDES (technique)","4 × 200 m (15kmh)","accélération progressive","marche retour complète (100m)","(léger, volontairement)","10 KB swings double (2KB)","10 push-ups","30 mountain climbers"],notes:""},
+  {date:"2026-03-17",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["RUN + POWER","600 m run (10.5)","Alt jump lunge rotate × 12","Burpees × 10","Kneeling slam ball × 10","CORE ENGINE","400 m run (13)","Mountain climbers × 20","Wall balls × 15","Single-arm kneeling rollout × 8 / côté","Autres","ATHLETIC POWER FLOW (3 tours)","300 m course","10 trusters","10 push press","15 KB Swings","10 Push-Ups","GLUTES + CORE INTENSE (3 tours)","300 m course","12 RDL + Row (DB ou KB)"],notes:""},
+  {date:"2026-03-15",routine:"Hyrox Drill",type:"Hyrox",duration:"~30 min",blocks:["Simul Demi-Hyrox complete (en duo)"],notes:""},
+  {date:"2026-03-13",routine:"WOD Hybride",type:"Hybride",duration:"~30 min",blocks:["3500m de Skierg","15min Stair master"],notes:""},
+  {date:"2026-03-12",routine:"Renfo Course",type:"Renfo Course",duration:"~75 min",blocks:["600m course (10.5)","Standing calf raise (landmine)\n3 x 12","Calf raise (genou fléchi)  (landmine)\n3 x 12","Landmine cyclist squat","3 × 12","600m course (10.5)","Seated calf raise lourd\n3 x 12","Trap bar deadlift\n3 x 12","600m course (10.5)","Landmine lateral squat","3 × 8 / côté","Tibialis raises","3 × 20","600m course (10.5)","Landmine Single Leg RDL","3 × 8 / jambe","Landmine Step-back lunge (contrôle)","3 × 8 / jambe"],notes:""},
+  {date:"2026-03-10",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["Engine Builder","500 m run (10,5 km/h)","Med ball n'burpees x8","Med ball RDL n'squat x8","Med ball n'crunch x8","Strength Endurance","500 m run (10,5 km/h)","KB clean & press x10/côté","Renegade Row x10/côté","Side plank reach-through ×10/côté","Medball side to side x16","BLOC FINAL — Heavy Hybrid","Tire flip n'burpees,  3 allées-retours"],notes:""},
+  {date:"2026-03-09",routine:"Cardio",type:"Cardio",duration:"~30 min",blocks:["5km course legere"],notes:""},
+  {date:"2026-03-07",routine:"WOD Hybride",type:"Hybride",duration:"~45 min",blocks:["300m run","15x KB Swing","300m run","1 allée-retour Fente avec poid","Plate Halo","Side bends","Side to side w/plate"],notes:""},
+  {date:"2026-03-06",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["Squat","35","35 + 5","35 + 10","35 + 15","35 + 20","x10 reps","(+barre)","RDL","35","35+5","35+ 10","35 + 15","35 + 20","x10 reps","(+barre)","8min Stairmaster"],notes:""},
+  {date:"2026-03-05",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["WARM UP FLOW","Bike 6 min (zone 2 → zone 3 légère fin)","Puis circuit x2 :","KB Halo × 6 / sens\nScap push-ups × 12\nUp and down Plank  × 12","PUSH / PULL POWER CONTROL","Bike 6 min","Circuit 3 rounds (sans poser KB) :","KB Clean × 6 / côté","KB Push Press × 6 / côté","KB Front Rack Squat × 12 (contrôle)","KB Bent-over Row × 12","CORE INTENSE","Bike 8 min zone 2 haute","KB Renegade Row × 6 / côté\nKB Russian Twist (contrôle) × 12\nHanging leg raise × 12\nSide plank reach-through × 12 / côté","FINISHER FUN","Bike 6 min stable","KB Bear side to side x 12\nMedball side to side x 12\nMountain climbers contrôlés × 30","CARRY COMPLEX","Bike 6 min stable","Suitcase Carry lourd × 40 m / côté\nOverhead Carry × 30 m\nFront Rack Carry × 30 m"],notes:""},
+  {date:"2026-03-04",routine:"Cardio",type:"Cardio",duration:"~30 min",blocks:["6km course legere"],notes:""},
+  {date:"2026-03-03",routine:"Renfo Course",type:"Renfo Course",duration:"~75 min",blocks:["Bike 6 min\nZone 2 stable\nCadence 80–90 rpm","Standing calf raise (landmine)\n3 x 12","Calf raise (genou fléchi)  (landmine)\n3 x 12","Landmine cyclist squat","3 × 12","Bike 6 min","Seated calf raise lourd\n3 x 12","Trap bar deadlift\n3 x 12","Bike 6 min","Landmine lateral squat","3 × 8 / côté","Tibialis raises","3 × 20","Bike 6 min","Landmine Single Leg RDL","3 × 8 / jambe","Landmine Step-back lunge (contrôle)","3 × 8 / jambe"],notes:""},
+  {date:"2026-03-01",routine:"WOD Hybride",type:"Hybride",duration:"~45 min",blocks:["5 min course (10,5)","1 min marche rapide (5)","MINI ATHLETIC BLOCK (3 tours)","KB Swing — 15","Ball rotation - 16"],notes:""},
+  {date:"2026-02-27",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["ATHLETIC POWER FLOW (3 tours)","300 m course","10 KB Clean to Press","10 trusters","10 Push-Ups","15 KB Swings","GLUTES + CORE INTENSE (3 tours)","300 m course","12 RDL + Row (DB ou KB)","10 Plate Press Overhead","12 Sit-Ups weighted","10 Side Bends / côté","POWER CARDIO","10 Burpees over plate","10 Jump Squats","10 Mountain Climbers / côté","10 Med Ball Slams","28 Fev","800 m Course (10)","Goblet Squat (KB ou DB)"],notes:""},
+  {date:"2026-02-14",routine:"Sled + Tire Power",type:"Strongman",duration:"~75 min",blocks:["Vélo — 60 sec fort","Athletic Engine","(3 tours)","Narrow Squat + Hammer Curl + Front Raise ×12","Half Burpee + Bent Over Row ×12","Pulse Half Squat ×25","Rameur — 250 m fort","Power Strength Flow","(3 tours)","Reverse Lunge + Curl + Press ×10 / côté","Narrow Stance Double Snatch ×15","Plank DB Pull Through ×12 / côté","Vélo — 60 sec fort","CORE GRINDER","(3 tours)","Rainbow Press (25 lb) — 12 / sens","Wall Sit pass - 12 / coté","Overhead March — 20 pas","Side to Side Core — 12 / côté","Rameur — 250 m fort"],notes:""},
+  {date:"2026-02-13",routine:"Power Duo",type:"Duo",duration:"~75 min",blocks:["RUN — 500 m (13)","Dernier 100m (13.5)","POWER FLOW","(3 tours)","Devil's Press ×10","KB RDL + Press ×8 / coté","Med Ball Slam ×15","RUN — 400 m (13.5)","Dernier 100m (14)","STRENGTH + LEGS","(3 tours)","Walking Lunges overhead (chargés) — 20 pas","KB Swing ×15","Push-ups ×15","RUN — 300 m (14)","Dernier 100m (14.5)","CORE DUO","(3 tours)","Side Bends ×10 / côté","Weighted Sit-ups ×12"],notes:""},
+  {date:"2026-02-12",routine:"Leg Day Machines",type:"Hypertrophie",duration:"~75 min",blocks:["A1 Hip Abduction — EXTERNE\nObjectif : 20 reps","Set 1 : 165 lb × 20","Set 2 : 175 lb × 15–20","Set 3 : 185 lb × 12–15","A2 Hip Abduction — INTERNE","Set 1 : 120 lb × 20","Set 2 : 130 lb × 12","Set 3 : 140 lb × 10","B1 Seated Leg Curl — TEMPO\n(3 sec descente)","Set 1 : 120 lb × 10","Set 2 : 130 lb × 8","Set 3 : 140 lb × 6","B2 Seated Leg Curl — FORCE + SQUEEZE","Set 1 : 105 lb × 15","Set 2 : 110 lb × 12","C1 Leg Press — GLUTE BIAS","Set 1 : 290 lb × 15","Set 2 : 300 lb × 12","Set 3 : 310 lb × 10–12"],notes:""},
+  {date:"2026-02-10",routine:"Renfo Course",type:"Renfo Course",duration:"~75 min",blocks:["500 m run\ndernier 100 m sprint","(3 tours)","10 Devil's Press","12 KB Cyclist Squat","12 KB Deadlift","400 m run ensemble","dernier 100 m sprint","300 m run","dernier 100 m sprint","(3 tours)","Plate press overhead — 12","Sit-ups weighted — 12","Ruissian Twist - 12","Walking lunges weighted overhead (plate 25lb)","? Allé retour","Tire Flip","? Allé retour"],notes:""},
+  {date:"2026-02-08",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["(3 tours)","300 m run (13)\nBarbell Deadlift — 8 reps (45lb x2)","(3 tours)","300 m run (13)","RDL Smith machine - 12 reps (35lbx2)","(3 tours)","300 m run (13)","KB Swing — 15 reps (kb mauve)","SLED FINISHER","4 allées-retours","4 plate","4 plate 20","4 plate 30","4 plate 40"],notes:""},
+  {date:"2026-02-07",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["ATHLETIC POWER","500m course (13)\n(3 tours)","Thrusters — 12 reps\ncharge : 2×20–25 lb","Walking Lunges — 20 pas\ncharge : 2×25 lb","Push-Up to Shoulder Tap — 10 / côté","Med Ball Slam — 12\n20 lb","CORE ENGINE","500m course (13)\n(3 tours)","KB Swing — 15x 44lb","V-Up — 12 avec plate 25lb","30 sec Hollow Hold","20 ruissian twist kb jaune","500m course (13,5)"],notes:""},
+  {date:"2026-02-06",routine:"Calisthenics / Barre",type:"Calisthenics",duration:"~60 min",blocks:["500m course","B1 Handstand Wall Hold\n3 × 30 sec","B2 Wall Walk","B3 Crow Pose","B4 Pont (bridge hold)","C2 Pull-Up cluster","C4 Hanging Knee Raise / T2B\n6 reps x 4","2 x 500m rameur","500m course","Bench Press","20lbx12","30lb x 8","15min marche incliné","Etirement / roller"],notes:""},
+  {date:"2026-02-05",routine:"Leg Day Machines",type:"Hypertrophie",duration:"~75 min",blocks:["A1 Hip Abduction — EXTERNE","Set 1 : 155 lb × 20\nSet 2 : 165 lb × 15\nSet 3 : 175 lb × 15","A2 Hip Abduction — INTERNE","Set 1 : 110 lb × 20\nSet 2 : 120 lb × 15\nSet 3 : 130 lb × 12","BLOC B — ISCHIOS","B1 Seated Leg Curl — TEMPO\n(3 sec descente)","Set 1 : 110 lb × 10\nSet 2 : 120 lb × 10\nSet 3 : 125 lb × 8","B2 Seated Leg Curl — FORCE + SQUEEZE","Set 1 : 95 lb × 15\nSet 2 : 100 lb × 12","BLOC C — DOUBLE LEG PRESS","C1 Leg Press — GLUTE BIAS","Set 1 : 280 lb × 15","Set 2 : 290 lb × 15","Set 3 : 300 lb × 10–12","BLOC D — CORE / GLUTES","D1 Incline Bench Crunch\nPlate 35lb\n3 × 8","D2 Glute Squeeze\nPlate 45 lb\n3 × 12"],notes:""},
+  {date:"2026-02-03",routine:"Power Duo",type:"Duo",duration:"~75 min",blocks:["HYBRIDE","500 m RUN (13.5)","Thruster — 12 reps","Box Step Overhead   — 12 reps","RDL + Row (KB jaune) — 8 reps/côte","Push-Up — 12 reps","500 m RUN (13.5)","Med Ball Slam — 15 reps, 20lb","Burpees over plate — 10 reps","Plate Ground to Overhead — 12 reps, 35lb","Slow Montain Climber — 20 (10/côté)","500 m RUN (13.5)","CORE & STABILITY DUO","Around-the-World (plate 25lb) — 10 / sens\nOverhead March — 20 pas\nSide Plank with Reach — 10 / côté\nSuitcase Carry — 3 allée retour","Tire Flip Burpees","3 allée"],notes:""},
+  {date:"2026-02-02",routine:"Cardio",type:"Cardio",duration:"~45 min",blocks:["20min Course","10km/h (6min/km)","3,333km","25min Marche incline","5km/h","8-15 incline"],notes:""},
+  {date:"2026-01-31",routine:"Cardio",type:"Cardio",duration:"~30 min",blocks:["1h Marche Incline","Incline 15","3.5km/h"],notes:""},
+  {date:"2026-01-30",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["500 m course","(3 tours)","12 Thrusters (barre)","10 Burpees over plate","16 Walking Lunges (chargés overhead)","12 Push-Ups stricts","500 m course","(3 tours)","12 RDL + Row combo (barre)","10 Plate ground to Overhead","20 Air Squats tempo (3 sec down)","30 sec Hollow Hold","500 m course","(2 tours)","20 Jump Squats","12 Push-Ups tempo","40 Mountain Climbers","SLED FINISHER","4 allées-retours","Sled PUSH"],notes:""},
+  {date:"2026-01-29",routine:"Leg Day Machines",type:"Hypertrophie",duration:"~75 min",blocks:["A1 Hip Abduction — EXTERNE (20 reps)","Set 1 : 140 lb × 20","Set 2 : 150 lb × 20","Set 3 : 160 lb × 15","A2 Hip Abduction — INTERNE (rotation interne)","Set 1 : 100 lb × 20","Set 2 : 110 lb × 18","Set 3 : 120 lb × 12","BLOC B — ISCHIOS / SOUS-FESSIER","B1 Seated Leg Curl — TEMPO (3 sec descente)","Set 1 : 100 lb × 12","Set 2 : 110 lb × 10","Set 3 : 120 × 8","B2 Seated Leg Curl — FORCE + SQUEEZE","Set 1 : 85 lb × 20","Set 2 : 90 lb x 15","BLOC C — DOUBLE LEG PRESS GLUTES","C1 Leg Press — GLUTE BIAS (amplitude)"],notes:""},
+  {date:"2026-01-27",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["BIKE","15 min","DB Clean to Strict Press\n8 reps\n50lb barre","Strict Press\n8 reps","50lb barre","Arm KB Row (jaune)\n10 reps / bras","Front KB Row (mauve)\n12rep","BIKE","15min","Bench press\n10 reps","50lb","Bench Reverse Fly\n15 reps","50lb","BIKE","15 min","CORE","Side bends — 10 / côté (KB mauve)","Around-the-World — 6 / côté (plate 35lb)","Overhead March — 20 pas (plate 35lb)"],notes:""},
+  {date:"2026-01-26",routine:"Cardio",type:"Cardio",duration:"~30 min",blocks:["Easy run","50min","6,7km"],notes:""},
+  {date:"2026-01-24",routine:"Cardio",type:"Cardio",duration:"~45 min",blocks:["Hike mont tremblant","7,07km","939m D+","2:07"],notes:""},
+  {date:"2026-01-23",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["UPPER BODY","A1. Seated Row (machine)","12x 70lb","12x80lb x3","Cable Pullover (machine)","3×12 reps","Charge conseillée : 60lb","Développer honrizontal","3×12 reps","Charge conseillée :50 lb","Bench (cheat)","12x0lb","12x10lb","12x15lb","12x20lb","10x25lb","5x25lb","Machine Dips","3×8–12 reps","T2b"],notes:""},
+  {date:"2026-01-22",routine:"Leg Day Machines",type:"Hypertrophie",duration:"~75 min",blocks:["BLOC A — PRÉ-ACTIVATION GLUTES","(RPE max 8)","A1 Hip Abduction — EXTERNE","Set 1 : 130 lb × 20","Set 2 : 140 lb × 20","Set 3 : 150 lb × 18","A2 Hip Abduction — INTERNE","90 lb × 20","100 lb x 18","110 lb x 15 (plus difficile)","BLOC B — ISCHIOS / SOUS-FESSIER","B1 Seated Leg Curl — TEMPO (3 sec descente)","Set 1 : 95 lb × 10","Set 2 : 105 lb × 8","Set 3 : 110 lb × 8","Set 4 : 105 lb × 8","B2 Seated Leg Curl — FORCE + SQUEEZE","80 lb × 12–15 × 2","BLOC C — DOUBLE LEG PRESS GLUTES","C1 Leg Press — GLUTE BIAS"],notes:""},
+  {date:"2026-01-20",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["500 m RUN","→ ROW – 500 m","500 m RUN","Lunges avec pois","50 reps\nCharge :","30lb","500 m RUN","→ KB DEADLIFT + ROW COMBO","20 reps\n(KB)","500 m RUN","→ BURPEE BROAD JUMP","20 reps","500 m RUN","→ FARMER CARRY","2 aller-retour\nCharge :","2 × 20kg","500 m RUN","→ WALL BALLS","50 reps\nPoids : 14 lb","500 m RUN"],notes:""},
+  {date:"2026-01-19",routine:"Cardio",type:"Cardio",duration:"~30 min",blocks:["45 min de course à 8,5km/h"],notes:""},
+  {date:"2026-01-17",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["UPPER BODY — MACHINES (DOS / ÉPAULES / CHEST)","BLOC A — DOS (PRIORITÉ TIRAGE)","A1. Seated Row (machine)","4x10 reps","Charge conseillée (départ) : 70lb","A2. Cable Pullover (machine)","3×10 reps","Charge conseillée : 35lb","BLOC B — STABILITÉ SCAPULAIRE / ÉPAULES ARRIÈRE","B1. Développer honrizontal","3×12 reps","Charge conseillée :50 lb","BLOC C — CHEST & ÉPAULES ANTÉRIEURES","C1. Chest Press Machine","4×8–10 reps","Charge conseillée : 70–100 lb"],notes:""},
+  {date:"2026-01-15",routine:"Leg Day Machines",type:"Hypertrophie",duration:"~75 min",blocks:["BLOC A — PRÉ-ACTIVATION GLUTES","A1 Hip Abduction — EXTERNE","Tour 1 : 120 lb × 20","Tour 2 : 130 lb × 20","Tour 3 : 140 lb × 16","A2 Hip Abduction — INTERNE (rotation interne)","100 lb × 15 × 3","BLOC B — ISCHIOS / SOUS-FESSIER","B1 Seated Leg Curl — TEMPO (3 sec descente)","Tour 1 : 90 lb × 8–10","Tour 2 : 95 lb × 8","Tour 3 : 105lb x 8","BLOC C — DOUBLE LEG PRESS GLUTES","C1 Leg Press — GLUTE BIAS (amplitude)","Tour 1 : 250 lb × 15","Tour 2 : 260 lb × 12","Tour 3 : 270 lb × 12"],notes:""},
+  {date:"2026-01-13",routine:"Leg Day Glute",type:"Hypertrophie",duration:"~75 min",blocks:["A1 Back Squat (Smith Machine)","Nouvelle cible : 155 lb total","1: 140lb x 10","2: 140lb x 10","3: 140lb x 10","4: 140lb x8","A2 Romanian Deadlift (Smith Machine)","Charge maintenue : 145 lb"],notes:""},
+  {date:"2026-01-10",routine:"Power Duo",type:"Duo",duration:"~60 min",blocks:["HYBRIDE #2","500 m RUN (13.5)","Thruster — 12 reps","Box Jump Over (banc/box) — 12 reps","RDL + Row (KB jaune) — 8 reps/côte","Push-Up — 12 reps","500 m RUN (13.5)","Med Ball Slam — 15 reps, 20lb","Broad Jump — 6 sauts","Plate Ground to Overhead — 12 reps, 35lb","Plank Shoulder Tap — 20 taps (10/côté)","500 m RUN (13.5)","CORE & STABILITY DUO","Around-the-World (plate 25lb) — 10 / sens\nOverhead March — 20 pas\nSide Plank with Reach — 10 / côté\nSuitcase Carry — 3 allée retour"],notes:""},
+  {date:"2026-01-09",routine:"Calisthenics / Barre",type:"Calisthenics",duration:"~75 min",blocks:["CALISTHENICS","A1 Dead Hang (hollow)","3 × 35 sec","A2 Scap Pull-Ups","3 × 8 reps","A3 Strict Pull-Ups","Format : clusters","(4 × 1 rep) × 3 séries","A4 Toes-to-Bar","3 × 6 reps","BLOC B — TIRAGE / DOS","B1 Back Pull (machine)","4 × 8 reps","Charge : 80 lb","B2 Lat Pulldown","4 × 8 reps","Charge : 90 lb","BLOC C — PUSH","C1 Chest Press (machine)"],notes:""},
+  {date:"2026-01-08",routine:"Leg Day Machines",type:"Hypertrophie",duration:"~75 min",blocks:["LEG DAY #2","BLOC A — PRÉ-ACTIVATION GLUTES","Hip Abduction — EXTERNE (20 reps)","Tour 1 : 110 lb × 20","Tour 2 : 120 lb × 20","Tour 3 : 130 lb × 15–20","Hip Abduction — INTERNE","90 lb × 15 pour les 3 tours","BLOC B — ISCHIOS / SOUS-FESSIER","Seated Leg Curl — TEMPO (3 sec descente)","8–10 reps","Tour 1 : 85 lb × 8–10","Tour 2 : 90 lb × 8"],notes:""},
+  {date:"2026-01-06",routine:"Sled + Tire Power",type:"Strongman",duration:"~75 min",blocks:["500 m RUN","SLED POWER (3 rounds)","Sled PUSH — 1 allée","Sled PULL — 1 allée\n4 rounds","4 x 45","2x 35","TIRE FLIP POWER (3 rounds)","Tire Flip avec burpees — 3 aller chaque","500 m RUN","CORE & STABILITÉ (3 tours)","Around-the-World and press — 10 / côté","Overhead March (KB ou plate) — 20 pas","Reverse Plank Knee Drive — 10 / côté","Suitcase Carry (lourd) — 20 pas / bras"],notes:""},
+  {date:"2026-01-04",routine:"Leg Day Glute",type:"Hypertrophie",duration:"~75 min",blocks:["BLOC A – FORCE & TENSION","A1 Back Squat (Smith Machine)","Charge cible : 150 lb total","Round 1 : 10 reps","Round 2 : 10 reps","Round 3 : 10 reps","Round 4 : 10 reps","A2 Romanian Deadlift (Smith Machine)"],notes:""},
+  {date:"2025-12-29",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["Réchauffement:","500 m course","DB Clean to Squat Press 10 reps","Box Step-Over + Reach 8 / côté","Renegade Row 8 / bras","BLOC 2 — POWER + CORE\n(3 tours)","KB Swing 15 reps","Plate Ground to Overhead 12 reps","High Plank Shoulder Tap + Reach 10 / côté","Sit-Up to Reach Plate 12 reps","BLOC 3 — ENDURANCE HYBRIDE\n(AMRAP 15 min)","400 m course\n• 12 Push-Ups\n• 12 Walking Lunges (plate)\n• 10 Burpees fluides"],notes:""},
+  {date:"2025-12-21",routine:"Leg Day Glute",type:"Hypertrophie",duration:"~75 min",blocks:["LEG DAY #1 — GLUTE DOMINANT","BLOC A","Back Squat (Smith Machine)","Charge à utiliser : 150 lb total","Round 1 : 150lb x 10","Round 2 : 150lb x 10","Round 3: 150lb x10","Round 4 : 150lb x8","Romanian Deadlift (barre libre)"],notes:""},
+  {date:"2025-12-20",routine:"Leg Day Machines",type:"Hypertrophie",duration:"~75 min",blocks:["LEG DAY #2 — GLUTES DOMINANT (MACHINES)","Hip Abduction — EXTERNE","Tour 1 : 100 lb","Tour 2 : 110 lb","Tour 3 : 120 lb","Hip Abduction — INTERNE (rotation interne)","Nouvelle cible : 80–90 lb","BLOC B — ISCHIOS / SOUS-FESSIER","Seated Leg Curl — TEMPO (3 sec descente)","8–10 reps (j'ai fait 10 reps)","Charge cible : 80 lb","Seated Leg Curl — Force + Squeeze","premier tour 12 rep et deuxième 15","BLOC C — DOUBLE LEG PRESS GLUTES"],notes:""},
+  {date:"2025-12-16",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["500 m course","BLOC 1 — ATHLETIC POWER (3 tours)","DB Thruster – 12 reps","Box Jump Over (banc ou box) – 10 reps","KB RDL + Row Combo – 10 reps\n\nPush-Up + Shoulder Tap – 10 taps","500 m COURSE","BLOC 2 — FORCE ATHLÉTIQUE & STABILITÉ (3 tours)","Reverse Lunge to High Knee (DB) – 8 / jambe","Single-Arm DB Push Press – 8 / bras","Renegade Row – 8 / bras","Bear Position Toe Taps – 20 reps","500 m COURSE","BLOC 3 — CORE & FLOW (3 tours)","Plate Halo – 12 reps","V-Up to Plate Reach – 12 reps","Side to side core – 10 / côté","Dead Bug Weighted (DB léger) – 10 / côté","500 m COURSE"],notes:""},
+  {date:"2025-12-14",routine:"Leg Day Glute",type:"Hypertrophie",duration:"~75 min",blocks:["BLOC A – Force & Tension","Back Squat : Monte à 145 lb","Romanian Deadlift : Monte à 125 lb","BLOC B – Glutes Volume","Hip Thrust : Monte à 155 lb","Elevated Split Squat","BLOC C – Câbles","Cable Kickback","Cable Abduction"],notes:""},
+  {date:"2025-12-13",routine:"Power Duo",type:"Duo",duration:"~75 min",blocks:["400 m COURSE","ATHLETIC POWER DUO (3 tours, ensemble)","Ball Slam — 12 reps","Broad Jump + Backpedal — 8 répétitions","Thrusters Barre — 10 reps","Bench Hop Over — 12 reps par côté","400 m COURSE","YOU GO / I GO (3 rounds)","Brouette (Wheelbarrow Walk) — 2 × 10–15 m","Walking Lunges (avec plate) — 20 pas chacun","RDL + Row Combo (KB) — 10 reps chacun","Push-Up Challenge — 12 reps chacun","400 m COURSE","POWER ENDURANCE FINISHER (2 tours, ensemble)","Saut latéral over plate — 20 reps ensemble","KB Swing — 15 reps ensemble","Burpee Sync — 10 reps","Plank High-Five — 20 high-fives","400 m COURSE"],notes:""},
+  {date:"2025-12-10",routine:"Leg Day Machines",type:"Hypertrophie",duration:"~75 min",blocks:["LEG DAY #2 — GLUTES DOMINANT (MACHINES)","BLOC A — Pré-activation (3 tours)","Hip Abduction EXTERNE","20 reps — charge : 70–90 lb","1st rep 90 / 2e 110 / 3e 120lb","Hip Abduction INTERNE","15 reps — charge : 50–70 lb","BLOC B — Ischios Tension (Superset × 2 tours)","Seated Leg Curl — TEMPO (3 sec down)","8–10 reps — 45–60 lb"],notes:""},
+  {date:"2025-12-09",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["500 m Course","ATHLETIC POWER FLOW\n(3 tours)","1) KB Clean to Push Press (alterné) – 10 / côté","2) Lateral Box Step-Over + Reach – 8 / côté","3) DB Power Row to Rotation – 10 / côté","4) Med Ball  Slam to Squat Catch – 10 reps","500 m Course","STRENGTH & SPEED CONTROL\n(3 tours)","1) KB Deadlift to High Pull – 10 reps","2) Reverse Lunge to High Knee + DB Drive – 10 / jambe","3) Bear Plank KB Drag – 10 / côté","4) High Plank Toe Tap → Reach Forward Combo – 8 / côté","500 m Course","CORE & ROTATION FINISHER (3 tours)","1) Plate Around-the-World – 10 / sens","2) Side to Side Knee Drive – 20 reps"],notes:""},
+  {date:"2025-12-07",routine:"Leg Day Glute",type:"Hypertrophie",duration:"~75 min",blocks:["LEG DAY — GLUTE DOMINANT (60–75 min)","BLOC A – Mouvements lourds","Barbell Back Squat — 4×10\n135 lb","Barbell Romanian Deadlift — 4×10\n115 lb","BLOC B – Superset Glutes (3 tours)","Barbell Hip Thrust — 12 reps\n135 lb","Elevated Split Squat (glute bias) — 10/jambe\nDB 25 lb","BLOC C – Câbles (3 tours)","Cable Kickback — 15/jambe\n15 lb","Cable Abduction — 15/jambe\n15 lb","BLOC D – Core Finisher (8–10 min)"],notes:""},
+  {date:"2025-12-06",routine:"Hyrox Drill",type:"Hyrox",duration:"~75 min",blocks:["DEMI-HYROX DUO — TEST COMPLET","0 — 500 m RUN (échauffement actif)","STATION 1 — SKIERG 500 m\nA → 250 m / B → 250 m","500 m RUN","STATION 4 — BURPEE BROAD JUMP – 40 m","STATION 5 — ROWING 500 m","500 m RUN","STATION 6 — FARMER CARRY","STATION 7 — WALKING LUNGES – 100 m","500 m RUN","STATION 8 — WALL BALLS – 100 reps"],notes:""},
+  {date:"2025-12-05",routine:"Calisthenics / Barre",type:"Calisthenics",duration:"~75 min",blocks:["BLOC A — Prep Scap / Push (8 min)","2–3 rounds :","Scap Push-Ups – 12","Pike Hold (sur box ou sol) – 20 sec","Plank Shift Forward – 10 reps","BLOC B — PUSH STRENGTH","Pike Press (sur box ou sol) – 6–8 reps","Dips (anneaux, barres ou box progression) – 6–8","Push-Up Tempo – 8 reps","BLOC C — CORE & COMPRESSION SKILLS","Tuck to L-Sit Progression – 10–15 sec","Leg Raises Lents – 8–10 reps","Plank to Pike (box ou sol) – 10 reps","Side Hollow Rocks – 10 / côté","BLOC D — ÉQUILIBRE HANDSTAND","Kick-Up to Handstand × 3","Wall Walk to Nose-To-Wall Hold – 15–20 sec","Crow Pose Knee Lift – 6 reps"],notes:""},
+  {date:"2025-12-03",routine:"Calisthenics / Barre",type:"Calisthenics",duration:"~75 min",blocks:["BLOC A — Activation technique","Dead Hang Hollow – 20–25 sec","Scap Pull-Ups – 8 reps","Hollow Rocks – 12–15 reps","BLOC B — Pull-Up Strength","Cluster Pull-Ups – 1 + 1 + 1","Negative Pull-Up (2–3 sec) – 1 rep","Chin-over-Bar Hold – 5–7 sec","BLOC C — Tirage Haut + Obliques","KB High Pull Explosif – 8 reps","Inverted Row (tempo 2–1–2) – 10–12 reps","Side Plank Knee Drive – 10 / côté","BLOC D — T2B Skill + Core Compression","Knees-to-Bar strict – 6 reps","T2B – 4 reps","Hanging Leg Raises – 6–8 reps"],notes:""},
+  {date:"2025-12-02",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["x3 tours (avec Kettle Bell jaune)","Elevated Squat avec KB – 12 reps","Single-Leg RDL avec jambe arrière élevée (KB) – 12 / jambe","Reverse Cross Lunge (pied avant sur plate, KB) – 12 / jambe","Reverse Elevated Lunge + High Knee (KB) – 12 / jambe","Forward Elevated Lunge + Squat Combo (KB) – 10 / jambe","500 m de course entre chaque tour"],notes:""},
+  {date:"2025-12-01",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["500 m COURSE","ATHLETIC POWER (3 tours)","KB Clean to Squat Press – 8 / côté","Lateral Box Step-Over + Plate Reach – 8 / côté","DB Push-Up to Renegade Row – 6 / côté","Med Ball  Slam to Catch – 10 reps","500 m COURSE","LOWER BODY + CORE STABILITY (3 tours)","KB RDL to Row Combo – 10 reps","Reverse Lunge to High Knee (DB) – 8 / jambe","Side Plank Reach-Through + Lift – 8 / côté","Bear Position Toe Taps – 20 reps","500 m COURSE","FINISHER (2 tours)","DB Thrusters – 12 reps","KB Swing – 15 reps","V-Up to DB Reach – 12 reps","20 secondes de High Knees puissants"],notes:""},
+  {date:"2025-11-25",routine:"Power Duo",type:"Duo",duration:"~75 min",blocks:["500 m COURSE","POWER DUO SLED (3 rounds)","Sled PUSH + PULL alternance","500 m COURSE","TIRE FLIP + BURPEE FLOW (3 rounds)","500 m COURSE","CORE + STABILITÉ DUO (3 rounds)","Around-the-World Knee Drive – 10 / côté","Overhead March (KB/plate) – 20 pas","Reverse Plank Knee Drive – 10 / côté","Suitcase Hold Walk (lourd) – 20 pas / bras","Bench Oblique Crunch (poids) – 12 / côté"],notes:""},
+  {date:"2025-11-24",routine:"Calisthenics / Barre",type:"Calisthenics",duration:"~75 min",blocks:["500 m Course (ensemble)","(2 rounds)","DB Push Press – 10 reps","Incline Plank Shoulder Tap – 12 / côté","Plate Around the World – 10/ sens","500 m Course (ensemble)","KB Row + Rotation – 12 / côté","High Plank DB Drag – 10 / côté","Dead Hang — 30 sec ensemble","500 m Course (ensemble)","DB Floor Press – 12 reps","Bear Position Alternating Reach – 6 / côté","Triceps – 12","500 m Course (ensemble)","CORE DUO FINISHER (3 tours)","Med Ball Side to Side – 16 reps","Hollow Hold – 20 s","V-Up to DB Reach – 10 reps"],notes:""},
+  {date:"2025-11-23",routine:"Leg Day Glute",type:"Hypertrophie",duration:"~75 min",blocks:["LEG DAY — GLUTE DOMINANT","BLOC A – Mouvements lourds","Barbell Back Squat — 4×6–8\n135 lb","Barbell Romanian Deadlift — 4×8–10\n115 lb","BLOC B – Superset Glutes (3 tours)","Hip Thrust – 12–15 reps","Reverse Deficit Lunge – 10 / jambe","BLOC C – Câble (glute moyen)","Cable Kickback – 12–15 / jambe","Cable Abduction – 15–20 / jambe","BLOC D – Core & Control (3 tours)","Incline Bench Glutes – 15 reps","Hanging Leg Raise - 10 reps"],notes:""},
+  {date:"2025-11-22",routine:"Cardio",type:"Cardio",duration:"~30 min",blocks:["6km / 40min"],notes:""},
+  {date:"2025-11-21",routine:"Calisthenics / Barre",type:"Calisthenics",duration:"~75 min",blocks:["BLOC A — Hanging + Pulling Strength (4 rounds)","Dead Hang (supination ou pronation) – 25–35 sec","Scapular Pull-Ups – 8 reps","Inverted Row (sous la barre ou TRX) – 10–12 reps","Raises suspendus – 10–12","BLOC B — Handstand Technique & Skill Work","Handstand Wall Hold (ventre au mur) – 3×25–35 sec"],notes:""},
+  {date:"2025-11-20",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["500m Course (Ronde 1)","(3 Tours)","KB Clean to Press – 10 / côté","Box Step-Over + Reach (sans saut) – 6 / côté","High Plank Walkout + Push-Up – 6 reps","500 m Course (Ronde 2)","(3 tours)","KB Side press – 10 / bras","KB Rotational Row (split stance) – 12 / côté","500 m Course (Ronde 3)","(3 tours)","Med Ball Side to side – 16 reps","KB Around-the-World – 10 par sens","500 m Course (Ronde 4)"],notes:""},
+  {date:"2025-11-18",routine:"Leg Day Glute",type:"Hypertrophie",duration:"~75 min",blocks:["LOWER BODY / GLUTES DOMINANT","BLOC A – Force & Tension Mécanique","Back Squat – 4×8 @ 65–75%","Romanian Deadlift – 4×10","BLOC B – Superset Glutes / Volume Hypertro (3 tours)","Hip Thrust – 12–15 reps","Reverse Deficit Lunge – 10 / jambe","BLOC C – Superset Câble","Cable Kickback – 12–15 / jambe","Cable Abduction – 15–20 / jambe","BLOC D – Core & Control (3 tours)","Incline Bench Glutes – 15 reps","Hanging Leg Raise - 10 reps"],notes:""},
+  {date:"2025-11-17",routine:"Power Duo",type:"Duo",duration:"~75 min",blocks:["500 m Course","→ DB Front Squat to Press : 16 reps","500 m Course","→ Burpee Lateral Jump over Partner : 12 / personne","500 m Course","→ One leg elevated RDL : 12 / jambe","500 m Course","→ Row + Skierg 600 m total (300 m chacune, en relais)","500 m Course","→ Med Ball Slam (lourds) : 20 reps ensemble","500 m Course","→ Plank KG drag : 16 reps","500 m Course","→ Farmer Carry (lourd) : 2 allers-retours","500 m Course","→ Wall Balls (14 lb) : 100 reps totales (divisées 50-50)","Sled-Relay"],notes:""},
+  {date:"2025-11-16",routine:"Power Duo",type:"Duo",duration:"~60 min",blocks:["1-400 m Course","KB Elevated Squat Hold + Pulse : 15 reps","Side Lunge avec KB Hold : 10 / jambe","2-400 m Course","KB Deadlift + Swing Combo  : 12 reps","Plank Kickback Combo : 10 / jambe","3-400 m Course","Reverse Lunge + Highkick (avec KB) : 12 / jambe","Kneeling Plate Press Extension : 12 reps","4-400 m Course","Side Plank with Leglift : 10 / côté","Partner Wall Sit Pass (avec med ball) : 20 passes","5-400 m Course","Hip Thrust (sur banc ou au sol avec KB) : 15 reps","Abduction debout (kick latéral) : 15 / jambe","6-400 m Course – Finisher","30 Push-up / 30 Jump Lunges / 50 Sit-up"],notes:""},
+  {date:"2025-11-12",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["Shoulder Flow (3 rounds)","Arm Circles – 15 reps avant / 15 reps arrière","Flow dynamique (3 tours)","DB Squat to Press 15 reps","Reverse Lunge to high knee – 10 / jambe","Walkout + Push-Up + Row (alterné) – 10 reps","Plank Knee Drive to Kickback – 10 / jambe","Force & Stabilité (4 tours)","DB Deadlift to Front Raise – 10 reps","Lateral Lunge + High Pull (DB) – 8 / jambe","Single-Leg RDL + Row (DB) – 8 / jambe","Sit-Up to Shoulder Press – 12 reps","Endurance & Core Flow (3 tours)","Glute Bridge Hold + Chest Fly (DB) – 12 reps","Mountain Climber to Push-Up – 10 reps"],notes:""},
+  {date:"2025-11-10",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["1-400 m Course","→ Thrusters (barre ou DB) : 20 reps","2-400 m Course","→ Burpee Broad Jump : 1 aller-retour","3-400 m Course","→ Walking Lunges (avec plate) : 1 aller-retour","4-400 m Course","→ Skierg : 500 m","5-400 m Course","→ Kettlebell Swing (16–20 kg) : 25 reps","6-400 m Course","→ RDL/Squat (KB) : 15 reps","7-400 m Course","→ Farmer Carry (modéré-lourd) : 2 aller-retours","8-400 m Course","→ Wall Balls (14 lb) : 50 reps"],notes:""},
+  {date:"2025-11-07",routine:"WOD Hybride",type:"Hybride",duration:"~45 min",blocks:["400 m course\n→ 15 Plate Ground to Overhead\n→ 15 Kettlebell Swing\n→ 15 Push Press\n→ 16 Walking Lunges (avec plate)","400 m course\n→ 12 DB Clean to Squat Press\n→ 12 Burpee Over Plate\n→ 12 Box Jump\n→ 16 Plate Halo","400 m course\n→ 15 KB Deadlift\n→ 12 KB Row\n→ 12 Wall Sit Plate Hold (30 sec)\n→ 12 KB Side Bends","Finisher (3 rounds sans pause)\n→ 10 KB Swing\n→ 10 Push-ups\n→ 20 Flutter Kicks"],notes:""},
+  {date:"2025-10-30",routine:"Calisthenics / Barre",type:"Calisthenics",duration:"~75 min",blocks:["400 m Course","Station 1 – Explosive Start","12 DB Clean & Press","15 Med Ball Squat to Overhead Throw","12 Jumping Alternating Lunge","400 m Course","Station 2 – Glutes & Posterior Chain","15 KB Deadlift to Row","12 KB Reverse Lunge + Kickback","15 Hip Thrust au sol (KB sur le bassin)","400 m Course","Station 3 – Core & Rotation","12 Med Ball Russian Twist","12 DB Wood Chop","12 Plate Rainbow Press","400 m Course","Station 4 – Upper Body Power","12 Barre Push Press","12 Renegade Row","10 Explosive Push-Up"],notes:""},
+  {date:"2025-10-27",routine:"Power Duo",type:"Duo",duration:"~75 min",blocks:["Bloc A – Full Body Power (3 tours)","10 Plate Ground to Overhead","8 Lateral Bound + Floor Touch / côté","12 DB Clean to Squat Press","10 Burpees to Plate Reach","Bloc B – Glutes Focus (3 tours)","12 KB Curtsy Lunges / jambe","12 KB Crossover Step-Up / jambe","15 Kneeling Plate Press Extension","15 KB Rainbow Swing","Bloc C – Core & Rotation (3 tours)","12 Plate Rollout","20 KB Around the World","10 Med Ball Plank Tap","15 Russian Twist","Bloc D – Upper Strength + Power (3 tours)","10 DB Floor Press","12 DB Rotational Row / côté","10 Med Ball Push to Rotation Throw","12 DB Front Raise Alternée"],notes:""},
+  {date:"2025-10-26",routine:"Leg Day Glute",type:"Hypertrophie",duration:"~75 min",blocks:["400 m Course","Station 1 – Push & Explosivité","10 DB Push Press","12 Burpees to Plate Reach","12 Box Jump Overs","400 m Course","Station 2 – Glutes & Latéraux","12 KB Curtsy Lunges / jambe","12 KB Side Step Squats","15 Hip Thrust au sol avec KB sur le bassin","400 m Course","Station 3 – Core & Stabilité","10 Plate Pull Through","12 V-Up to Press","20 Side to Side Knee Drive","400 m Course","Station 4 – Upper & Tirage","12 KB Single Arm Row / bras","10 Renegade Row + Push-Up combo","20 Plate Front Raise Alternée"],notes:""},
+  {date:"2025-10-25",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["400 m Course","Station 1 – Full Body Power","12 Thrusters (barre ou DB)","10 Burpees over plate","15 Air Squats","400 m Course","Station 2 – Glute & Core Stability","12 KB Side Lunge + Hold / côté","12 Single Leg RDL (KB) / jambe","15 Glute Bridge March (avec KB sur bassin)","400 m Course","Station 3 – Upper Pull Flow","12 KB Bent-over Row / bras","12 KB Gorilla Row (alterné, tempo fluide)","15 Plate Halo + Press","400 m Course","Station 4 – Core Control","12 KB Deadbug Press / côté","15 Russian Twist (med ball)"],notes:""},
+  {date:"2025-10-23",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["Warm Flow (10 min)","3 tours à rythme fluide :","300 m Row","10 Push-ups","10 KB Deadlift légers","10 Plate Rear Fly","Strength Endurance Circuit (25-30 min)","4 tours sans pause :","400 m Run","10 KB Bent-Over Row / bras","10 Dumbbell Push Press","12 Plate Ground to Overhead","12 KB Renegade Row (6/bras)","20 sec Plank Hold","Upper Body & Core Flow (15–20 min)","15 Ball Slam (20lb)","12 Plate Halo + Overhead Press","10 KB Deadbug Press / côté","12 Side Bends / côté","20 sec Hollow Hold"],notes:""},
+  {date:"2025-10-21",routine:"Power Duo",type:"Duo",duration:"~75 min",blocks:["Glute Sculpt Flow — x3 tours","Elevated Squat avec KB – 12 reps","Single-Leg RDL avec jambe arrière élevée (KB) – 10 / jambe","Reverse Cross Lunge (pied avant sur plate, KB) – 10 / jambe","Reverse Elevated Lunge + High Knee (KB) – 10 / jambe","Forward Elevated Lunge + Squat Combo (KB) – 8 / jambe","400 m de course entre chaque tour","Duo Glute & Core Burnout (3 tours)","Wall Sit Hold avec Med Ball Pass – 12 passes","Kneeling Plate Raise (jambes en canard) – 12 reps","Side Plank with Leg Lift (synchro) – 10 / côté"],notes:""},
+  {date:"2025-10-20",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["Power Circuit (4 tours)","400 m run","KB Clean to Press (alterné) – 12 reps / bras","Med Ball Slam + Squat Catch – 12 reps","Box Jump Overs – 12 reps","KB Deadlift to Row Combo – 12 reps","Core & Athletic Stability (4 tours)","Renegade Row (DB) – 12 / bras","Side Lunge + Plate Halo – 12 / côté","V-Up to Plate Press – 12 reps","Plank Shoulder Tap to Reach Forward – 12 / côté"],notes:""},
+  {date:"2025-10-19",routine:"Leg Day Glute",type:"Hypertrophie",duration:"~45 min",blocks:["(4 tours)","Single-Leg RDL (avec KB) – 15 reps / jambe","(4 tours)","Side Lunge + KB Hold (gobelet) – 15 reps / côté","Superset : Abduction (debout avec bandes) – 15 reps / coté","(4 tours)","Hip Thrust au sol (avec KB sur le bassin) – 15 reps","Superset : Kickback (debout avec bandes)  – 15 reps / jambe"],notes:""},
+  {date:"2025-10-17",routine:"Calisthenics / Barre",type:"Calisthenics",duration:"~75 min",blocks:["Run & Pull Flow (3 tours)","400 m Assault Runner","6–8 Strict Pull-Ups","8 Toes-to-Bar","10 KB Swing to High Pull","10 Burpees to Plate Jump","Hang Strength & Core Control (3 tours)","Dead Hang (30–40 sec)","Active Hang Knee Raises (10 reps)","KB or Plate Halo Squat (10 reps)","Bear Pose KB Pull-Thru (10 par côté)","Med Ball Slam (10–12 reps)","Endurance Finisher (3 tours)","200 m Assault Runner","8 KB Front Rack Squats","8 Push-Ups"],notes:""},
+  {date:"2025-10-15",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["Full Body Hybrid – Power & Core Flow","Power Flow (3 tours)","500 m course","KB Snatch → Overhead Reverse Lunge (8/jambe)","DB Push Press + Split Jump Combo (10 reps)","Med Ball Rotational Slam (8–10/côté)","Lateral Box Step Over + Jump (8/côté)","Single-Arm KB Row to Rotation (10/bras)","Core & Stabilité Dynamique (3 tours)","Half-Kneeling KB Halo + Press (8/côté)","Incline Shoulder Tap Plank (12 reps)","Single-Arm KB Front Rack March (10 pas/jambe)"],notes:""},
+  {date:"2025-10-14",routine:"Hyrox Drill",type:"Hyrox",duration:"~60 min",blocks:["HYROX DUO (6 stations + course)","→ 400 m course","Ski Erg – 800 m total (400 m chacune)","→ 400 m course","Burpee Broad Jump – 40 m total (2 x 20 m chacune)","→ 400 m course","Kettlebell Farmer Carry – 100 pas chacune (2 x 16 kg)","→ 400 m course","Rowing – 800 m total (400 m chacune)","→ 400 m course","Walking Lunges – 50 pas chacune","→ 400 m course","Wall Balls – 100 reps (divisées 50–50)"],notes:""},
+  {date:"2025-10-11",routine:"Power Duo",type:"Duo",duration:"~75 min",blocks:["3 tours en duo :","20 m Bear crawl","20 KB deadlift (léger, fluides)","12 Med ball toss (assis face à face)","12 KB halos + squat","20 Plank partner tap","3 tours en duo :","20 Med ball slams (ensemble, rythme)","15 Ball over shoulder","20 Partner med ball rotation toss","10 Ball plank rolls","3 tours en duo :","Kettlebell Plank Drag – 8 par côté","Med Ball Wall Toss Squat Catch – 10–12 reps chacune","Partner Wall Sit Pass – 20 lancers totaux","Side Plank Reach & Tap – 10 par côté"],notes:""},
+  {date:"2025-10-10",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["800m Run","Thrusters ×15","800m Run","KB Step-ups ×12/jambe","800m Run","KB Gorilla Rows ×12/bras","800m Run","Deadlift crossKB","800m Run","KB Halo Squat ×16"],notes:""},
+  {date:"2025-10-07",routine:"Power Duo",type:"Duo",duration:"~60 min",blocks:["250 m course","15 Thrusters","10 Burpees","20 Walking lunges avec DB","15 Box jump overs","Circuit cardio/jambes en duo","Core Challenge (3 rounds ensemble)","20 Med ball slam (20lb)","10 Sit-ups","20 Plate rainbow press","12 Bear pose KB pull-thru","30 sec Side plank (chaque côté)"],notes:""},
+  {date:"2025-10-06",routine:"Calisthenics / Barre",type:"Calisthenics",duration:"~75 min",blocks:["Cardio/Force mix (3 tours)","400 m run","15 KB swings (lourd, explosifs)","12 Burpees to Plate","12 Box Jumps","10 Push Press","Grip & Core suspendu (3 tours)","Dead hang : 40 sec","Toes-to-bar : 6 reps","Active scap pull-ups : 12 reps","Partner/Challenge style","1 min Max Wall Balls","1 min Row (calories)","1 min KB Farmer March (50 pas)","1 min Sit-ups","1 min Rest × 4 rounds"],notes:""},
+  {date:"2025-10-05",routine:"WOD Hybride",type:"Hybride",duration:"~45 min",blocks:["Bloc core (3 tours)","KB 15  reps","KB Russian Twist : 15 reps/côté","Deadbug KB Press : 15 reps/côté","Ball Slam : 20 reps","Side Plank avec rotation : 15/côté","2,5 km de course"],notes:""},
+  {date:"2025-10-04",routine:"Hyrox Drill",type:"Hyrox",duration:"~75 min",blocks:["Hyrox Varié (8 stations)","500 m Run","Thrusters ×20 → alt. Wall balls","500 m Run","Box Jumps ×20 → alt. Burpees","500 m Run","KB Gorilla Rows ×15/bras → alt. Row","500 m Run","KB Step-ups ×10/jambe → alt. Lunges","500 m Run","Rack Carry (KB épaules) ~60 pas → alt. Farmer carry","500 m Run","KB Halo Squat ×20 → alt. Wall balls","500 m Run","KB RDL , tirage x10/bras","500 m Run","Deadlift x20"],notes:""},
+  {date:"2025-10-01",routine:"Calisthenics / Barre",type:"Calisthenics",duration:"~75 min",blocks:["Bas du corps + Core + Grip suspendu","Bas du corps (4 tours)","Back squat @65 % : 10 reps","Good Mornings : 10 reps","Run 200 m sprint","RDL over WallHip thrust : 12 reps","RDL over wall : 12 reps","Run 200 m sprint","Core actif (3 tours)","Plate Halo : 10 reps/côté","KB Side Bends : 12/côté","Bear Pose KB Pull Through : 12","Partner plank high five : 12","Grip suspendu (2 tours)","Dead hang : 20–30 sec","High knees suspendus : 8–10 reps","Scap pull-ups : 6–8 reps"],notes:""},
+  {date:"2025-09-30",routine:"Calisthenics / Barre",type:"Calisthenics",duration:"~60 min",blocks:["Circuit haut du corps (4 tours)","Bench press : 12 reps","Tractions : 6–10 reps","Push press : 10 reps","Farmer carry lourd : ~50 pas","Run 400 m","Grip & Core suspendu (3 tours)","Dead hang : 20–40 sec","Toes-to-bar ou High knees suspendus : 8–12 reps","Active scap pull-ups : 8–10 reps","Sled spécifique","Sled push : 3 aller-retour","Sled pull (corde ou harnais) : 3 aller-retour"],notes:""},
+  {date:"2025-09-29",routine:"Cardio",type:"Cardio",duration:"~30 min",blocks:["5km de course (30min)","6min/km"],notes:""},
+  {date:"2025-09-23",routine:"Calisthenics / Barre",type:"Calisthenics",duration:"~60 min",blocks:["Échauffement :","200m run","Dead hang classique : 20–30 sec","Active hang : 15–20 sec","Dead hang knee raises : 6–8 reps","Arms-pulled leg raise : 8–10 reps","RDL 12 reps","Step-ups avec barre (12/jambe)","Wall sit hold (30 sec)","Dead hang"],notes:""},
+  {date:"2025-09-22",routine:"WOD Hybride",type:"Hybride",duration:"~30 min",blocks:["Rameur (2 min)","Pushup mains rapprochées (KB) x6","Jump squat x20"],notes:""},
+  {date:"2025-09-21",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["Lower body","Deadlift (barre) : 12 reps","Step-ups (avec DB 20lb) : 12 reps","Single leg RDL (avec DB 20lb) : 12 reps","Upper body","Push press (barre) : 12 reps","Pushup : 12 reps","Chest (12lb) : x12","Core finisher","Side plank dips : 12/côté","Hollow hold : 30 sec","Bear pose pull-thru (avec KB)  : 10/côté"],notes:""},
+  {date:"2025-09-20",routine:"Power Duo",type:"Duo",duration:"~60 min",blocks:["Course 400m","10-15 pushup ↔ l'autre tient plank hold","Row 300m ↔ l'autre fait air squats continus","Box jumps : 12 reps ↔ l'autre tient un wall sit","DB lunges : 20 pas ↔ l'autre tient la planche latérale","Course 400m","Kettlebell swings : 15 reps ↔ l'autre tient un superman","Burpees : 10 reps ↔ l'autre tient un hollow hold","Core & Glutes Duo Challenge (15 min)","Partner med ball toss (abdos) : 12 reps","Single leg glute bridge (au sol) : 12 reps/jambes","Partner plank high five : 12 par côté","Side bends (KB ou DB) : 12 reps par côté","Ball over shoulder : 12 reps"],notes:""},
+  {date:"2025-09-18",routine:"Leg Day Glute",type:"Hypertrophie",duration:"~60 min",blocks:["Around the world (KB) → 10 reps par sens","Goblet march (KB) → 20 pas","Box jumps → 12 reps","Single leg RDL (KB) → 12 reps par sens","Bear pose pull-thru (avec KB) → 10 reps par sens","Ball halo (KB) → 12 reps","Side bends (KB) → 12 reps par sens","Jump lunges (fentes sautées) → 12 reps","cardio-fessiers","8 KB swings explosifs","10 burpees","12 hip thrusts (au sol avec KB sur le bassin)"],notes:""},
+  {date:"2025-09-17",routine:"WOD Hybride",type:"Hybride",duration:"~45 min",blocks:["Course 300m (13) → Box jump overs : 12 reps","Course 300m (13)→ Farmer Carry : 40 pas","Course 300m (13)→ Row 250m","Course 300m (13) → Trusters (barre) : 12 reps","Course 300m (13,5) → Renegade row (DB) : 12 reps","Course 300m (13,5)→ Wall sit hold : 60 sec"],notes:""},
+  {date:"2025-09-16",routine:"Power Duo",type:"Duo",duration:"~45 min",blocks:["Plate Halo x20","Iron Trident x20","Partner plank high five x20","High plank spider man x20","Round 1 → Plate Halo (x20) + Iron Trident (x20)","Round 2 → Partner plank high five (x20) + Spider man (x20)","Round 3 → Plate Halo (x20) + Partner plank high five (x20)"],notes:""},
+  {date:"2025-09-12",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["500 mètres (11)","Burpees box jump ( 25 reps )","500 mètres (11)","Rameur (25 calories)","500 mètres (11)","Barbell row (50lbs)","500 mètres (11)","Push ups ( 25reps )","500 mètres (11)","Medecine ball (30lbs)","500 mètres (11)","kettlebell swing 50 reps (16kg)"],notes:""},
+  {date:"2025-09-10",routine:"Hyrox Drill",type:"Hyrox",duration:"~60 min",blocks:["Simul Demi-Hyrox en équipe :","500m course (12)","SkiErg (500m) / 2","500m course","Burpee Broad Jumps (40x) / 2","500m course","Rowing (500m) / 2","500m course","Farmers Carry (2 aller-retour) / 2","500m course","Sandbag Lunges (50x) / 2","500m course","Wall Balls 16lb (50x) / 2","500m course"],notes:""},
+  {date:"2025-09-09",routine:"WOD Hybride",type:"Hybride",duration:"~45 min",blocks:["Halo Squats x 20","Lunge + SA High Pulls x 20","Squat + Rainbow Press x20","Alternating KB Swings x20","Seated Knee Tucks + SA Press x20","800m de course"],notes:""},
+  {date:"2025-09-08",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["1 km course (12)","Kettlebell swing x 20","Push up to plank x20","Wallball x20","Box Jump x20","Skierg 20cal","Push up x20","Burpees x20","Squat longueur x20","Saut lunge x20"],notes:""},
+  {date:"2025-09-07",routine:"WOD Hybride",type:"Hybride",duration:"~45 min",blocks:["Eleved squat (44lb) x12","Cross body reverse lunges (13lb) x12","Hack squat (13lb) x12","Latéral lunges (35lb) x12","Kettle Bell swing (44lb) x12"],notes:""},
+  {date:"2025-09-06",routine:"WOD Hybride",type:"Hybride",duration:"~45 min",blocks:["Kettel Bell worktout (17lbs)","Around the World ->squat x 30","High pull x 15 (par côté)","Row -> High pull x 15 (par côté)","Iron trident (35lbs)","Sit-up (couché) x15","Jambes dans les airs et rotation du corps x20","Sit-up accordéon x15"],notes:""},
+  {date:"2025-09-04",routine:"WOD Hybride",type:"Hybride",duration:"~30 min",blocks:["Back squat 4×8 @65% (45lbx2)","Run 400m (13) + 20 Wall balls (16lbs) + 10 Burpees"],notes:""},
+  {date:"2025-09-02",routine:"Calisthenics / Barre",type:"Calisthenics",duration:"~45 min",blocks:["Suspension passive/active (Dead Hangs) – 3×20–30 sec","Pull-Ups scapulaires – 3×12","Rowing inversé (TRX ou barre) – 4×12","Tirage vertical (Lat Pulldown) – 3×10","Curls biceps / marteau – 3×12","Gainage (relevés de genoux suspendus) – 3×30 sec"],notes:""},
+  {date:"2025-09-01",routine:"WOD Hybride",type:"Hybride",duration:"~45 min",blocks:["Course 800m (12) → Push-ups : 20 reps","Course 800m → Renegade row : 20 reps (10/bras)","Course 800m → Ballon 35lb par dessus épaule : 20 reps","Course 800m → Tire de barre position deadlift  : 20 reps","Course 800m → All around core : 20 reps","Course 800m → Thrusters (barre) : 20 reps"],notes:""},
+  {date:"2025-08-30",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["Course : 800m (11,5)","Burpee broad jumps : 12 reps","Course : 800m","Deadlift KB/DB : 20 reps lourdes (35lb)","Course : 800m","Wall balls : 30 reps (14lb)","Course : 800m","Kettlebell swings : 25 reps (35lb)","Sprint : 3 x 300m (15km/h)","Sled pull/sled push : 4 aller-retour (225lb)"],notes:""},
+  {date:"2025-08-27",routine:"WOD Hybride",type:"Hybride",duration:"~45 min",blocks:["8 back squat (45lb)","8 reverse lunges (25lb)","10 pushup","15 sit up","20 around the World (25lb)","1000m row (4min48)"],notes:""},
+  {date:"2025-08-26",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["2. Bloc Principal (8 rounds – 40 min)","Chaque round :","400 m course @ 14–17 km/h\nRound impair → 15 Thrusters + 15 Lunges\nRound pair → 15 Deadlifts + 15 Burpee Box Jump","3. Finisher Death by Reps (5–7 min)","6 minutes AMRAP :","6 Push-ups","8 Box Jumps","10 Mountain Climbers (par jambe)"],notes:""},
+  {date:"2025-08-25",routine:"Hyrox Simulation",type:"Hyrox",duration:"~60 min",blocks:["Hyrox Simulation (8 blocs)","800 m course @ 11.5 km/h → 20 Thrusters","800 m course → 30 Lunges (2x25lb)","800 m course → 20 Deadlifts","800 m course → 20 Burpee Box Jump","800 m course → 20 Tirage dos (barre)","800 m course → 20 All Around the World (35lb)","800 m course → 20 Push-ups","800 m course → 20 Box Jumps explosifs","Burnout (5–7 min)","400 m sprint max","15 Burpees","20 Air Squats rapides","50 Mountain Climbers"],notes:""},
+  {date:"2025-08-21",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["Renfo Pré-fatigue (15–20 min)","15 Thrusters (barre)","15 Deadlifts 2x25lb","15 Burpee Box Jump","30 Lunges (15 par jambe, marchées si possible) 2x25lb","20 All Around the World (10 par sens) plate 35lb","Course Intervalle (20–25 min)","4×400 m 13 km/h","Récup = 200 m footing (9 km/h)","15 Push-ups","15 Jump Squats rapides","50 Mountain Climbers"],notes:""},
+  {date:"2025-08-19",routine:"Sled + Tire Power",type:"Strongman",duration:"~60 min",blocks:["500m course","SkiErg (500m)","500m course","Burpee Broad Jumps (40x)","500m course","Rowing (500m)","500m course","Farmers Carry (2 aller-retour)","500m course","Sandbag Lunges (50x)","500m course","Wall Balls (50x)","35 min — Manque 2 tour + sled"],notes:""},
+  {date:"2025-08-18",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["Course : 600 m (12)","Thrusters : 20 reps","Lunges : 20 pas (17,5lb)","Course : 600 m (12)","Box Jump : 20 reps explosifs","Push-ups : 20 reps","Course : 600 m (12)","Deadlift : 20 reps","All Around the World : 20 rotations (10 par sens)","Course : 600 m (12)","Burpee Box Jump : 20 reps","Tirage dos (barre ou poulie) : 20 reps","400 m course (13)","10 Burpees explosifs","10 Jump Squats","50 Mountain Climbers","1000m skierg (5min)"],notes:""},
+  {date:"2025-08-17",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["400m course  (14km/h)","Skierg 400m","200m course  (15km/h)","Farmer carry 2 aller retour","400m course (14km/h)","Wall ball 40 (15lbs)","200m course (15km/h)","Push up sur demi ballon : 20 - 10 - 10","400m course (14km/h)","Shoulder press (45lbs)  : 15 - 15  - 10","200m course (15km/h)","Dips 4reps extra 5 backrow","400m course (14km/h)","Sandbag lung: 40 reps","200m course (15km/h)","2000m skierg (10min)"],notes:""},
+  {date:"2025-08-14",routine:"Hyrox Drill",type:"Hyrox",duration:"~75 min",blocks:["Course : 800 m (11.5)","Thrusters : 20 reps (barre)","Course : 800 m (11.5)","Tirage dos (barre) : 20 reps","Course : 800 m (11.5)","Deadlift : 20 reps","Course : 800 m (12)","Burpee Box Jump : 20 reps","Course : 800 m (12)","All Around the World (disque) : 20 rotations totales","Course : 800 m (12)","Box Jump : 20 reps","Hyrox Sprint","400 m course (14)","15 Push-ups","8 Squat Jumps","6 Burpees"],notes:""},
+  {date:"2025-08-13",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["2km course 11,5km/h","Squat (115lbs) 3 x 10reps","One dumbbell row (30lbs) 3 x 10reps","Step up 3x (30lbs) chaque jambe","Jump box 3x (25 reps)","Dips 3x (15 reps)","Dumbbell press 3x (20lbs)","2 aller retour de tire flip / 2 burpees"],notes:""},
+  {date:"2025-08-11",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["800 mètres (11)","Burpees box jump ( 25 reps )","800 mètres (11)","Rameur (25 calories)","800 mètres (11)","Barbell row (50lbs)","800 mètres (11)","Push ups ( 25reps )","800 mètres (11)","Medecine ball (30lbs)","800 mètres (11)","kettlebell swing 50 reps (16kg)"],notes:""},
+  {date:"2025-08-10",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["800 m course (11)","Back Squat 15 reps à 60–70 % RM","400 m sprint (13)","Dips 15 reps","800 m course (11)","Bench Press 15 reps","400 m course (13)","Box Jump 15 reps","800 m course (11)","Knees to Chest 15 reps","400 m course (13)","Trusters 15 reps","800 m course (11)","Push-up 15 reps","Sprint 400 m (14)","(15 squats + 15 push-ups + 15 box jumps)"],notes:""},
+  {date:"2025-08-09",routine:"Calisthenics / Barre",type:"Calisthenics",duration:"~60 min",blocks:["500 mètres (10)","Jump lunges (50)","500 mètres (11,5)","Rameur (25 cals)","500 mètres (11,5)","25 thruster (barre 45lbs)","500 mètres (11,5)","5 pull up + 25 sec maintien","500 mètres (11,5)","25 Barbell row (50lbs)","500 mètres (11,5)","Sled 6 aller / retour ( 135lbs et 160 lbs)"],notes:""},
+  {date:"2025-08-08",routine:"Cardio Intervalles",type:"Cardio",duration:"~30 min",blocks:["Interval running","2-3-2-3-2-3-2min","1min marche entre"],notes:""},
+  {date:"2025-08-07",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["30 minutes Roller","20 Squat Box Jump","20 Bulgarian split squat (10x ch jambe) (2x15lb)","20 squat  (2x15lb)","10 push up","20 Box dips","20 all around the world core (12lb)","20 lateral split squat","1000m rameur"],notes:""},
+  {date:"2025-08-06",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["600m de course (400m à 10, 100 à 13, 100 à 14)","2 aller-retour jump squat (+/- 40m)","600m de course","2 aller-retour brouette (+/- 40m)","600m de course","30 cal Skierg","600m de course","20 push up avec jambes surélevés","600m de course","20x deadlift (70lb)","600m de course","30 wallball (16lb)","15 wallball (20lb)","600m de course"],notes:""},
+  {date:"2025-08-04",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["1000m course (10km/h)","30 box jump","1000m course (10km/h)","30 cal ski erg","1000m course (10km/h)","30 push up","1000m course (10km/h)","30 burpees","500m course (10km/h)","60 lunges"],notes:""},
+  {date:"2025-07-28",routine:"WOD Hybride",type:"Hybride",duration:"~30 min",blocks:["2,8km course échauffement","Entraînement avec échelle par terre","Un tour de terrain complet de burpees"],notes:""},
+  {date:"2025-07-27",routine:"Leg Day Machines",type:"Hypertrophie",duration:"~45 min",blocks:["Réchauffement","1000m rameur","Ballon 20livre par dessus épaule x12","Tire de barre position deadlift x12","Box step avec barre x12 par jambes","Leg press x12"],notes:""},
+  {date:"2025-07-26",routine:"Cardio Intervalles",type:"Cardio",duration:"~30 min",blocks:["30minutes de course (5.8km)","Session sprint"],notes:""},
+  {date:"2025-07-23",routine:"Cardio",type:"Cardio",duration:"~45 min",blocks:["2k. Dehors (PR : 4.48min/km)","100yard Burpees broadjump","100yard Lunche","5 aller retours sled (poids compétition)","4x 10 rep de trusters"],notes:""},
+  {date:"2025-07-21",routine:"Sled + Tire Power",type:"Strongman",duration:"~45 min",blocks:["5km dehors","4 aller-retour terrain de sprint","4 aller-retour sled push, sled pull (3x45lb (+25lbx1))","6 aller-retour Farmer carry (16kg)"],notes:""},
+  {date:"2025-07-19",routine:"Hyrox Fitness Test",type:"Hyrox",duration:"~45 min",blocks:["Fitness test Hyrox (for time) :","1000m run 2% incline","50 burpees broad jump","100 lunges","1000m Row","100 wall ball 4kg","10 Trusters 20lb","300m Skierg"],notes:""},
+  {date:"2025-07-17",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["Échauffement :","4 x 10 Trusters","1km Run","500m Run","24 Sandbag Walking Lunge","1min15 bike","500m Run","400m Row","12x Wall Balls (16lb)","40 Burpees Jump box"],notes:""},
+  {date:"2025-07-13",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["Échauffement :","3 x 10 Trusters","1km Run","400m Ski Erg","24 Sandbag Walking Lunge","400m Run","400m RoW","12x Wall Balls (16lb)","400m Run","40 Burpees Jump box"],notes:""},
+  {date:"2025-07-10",routine:"WOD Hybride",type:"Hybride",duration:"~60 min",blocks:["1600m de course","30 wallball (16lb)","Sled push (3 aller-retour)","1000m rameur","30 lunches avec poids","1000m de course","20 burpees broad jump","25 wall ball (16lb)","1min de planche avec touché d'epaule"],notes:""},
+  {date:"2025-06-19",routine:"WOD Hybride",type:"Hybride",duration:"~75 min",blocks:["1000m de course","30 jump squat","750m rameur","20 burpees","1000m course","30 wall ball (16lb)","30 lunges","500m skier","40 kettlebell swing","1min planche avec touché d'épaule","1min planche chaque côté","Min 1 : 10 burpees + max jumping jack","Min 2 : 15 squat + max mountain Climber","Min 3 : 8 Trusters","Min 4 : 15 Sit-up","Min 5 : Max push-up"],notes:""},
+];
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 4 — CONSTANTES & COULEURS
+// ══════════════════════════════════════════════════════════════
+const CATEGORIES    = ["Tous","Cardio","Full Body","Jambes","Postérieur","Upper Push","Upper Pull","Core","Strongman","Calisthenics","Renfo Course"];
+const ROUTINE_TYPES = ["Tous","Hyrox","Hybride","Hypertrophie","Calisthenics","Renfo Course","Duo","Strongman","Cardio","Récupération"];
+const EQUIPMENT_LIST = ["Tous","Aucun","Barre","DB","Kettlebell","Smith Machine","Machine","Câble","Med Ball","Plate","Box","Sled","Pneu","SkiErg","Rameur","Landmine","Trap Bar"];
+
+const catColors = {
+  "Cardio":"#5BA3B5","Full Body":"#C47A8A","Jambes":"#D49A64","Postérieur":"#C4855A",
+  "Upper Push":"#A890B8","Upper Pull":"#6A9FB8","Core":"#7BB490","Strongman":"#C46868",
+  "Calisthenics":"#5CAA90","Renfo Course":"#CCA060"
+};
+const rtColors = {
+  "Hyrox":"#C47A8A","Hybride":"#D49A64","Hypertrophie":"#A890B8","Cardio":"#5BA3B5",
+  "Calisthenics":"#5CAA90","Renfo Course":"#CCA060","Duo":"#5BA3B5","Strongman":"#C46868","Récupération":"#7BB490"
+};
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 5 — UTILITAIRES LOCALSTORAGE
+// ══════════════════════════════════════════════════════════════
+const LS = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) || d; } catch { return d; } },
+  set(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+};
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 6 — COACH IA — PROMPT & API
+// ══════════════════════════════════════════════════════════════
+const DEFAULT_COACH_PROMPT = `Tu es le coach d'entraînement personnel d'Alexanne. Tu parles en français québécois, de façon directe et motivante.
+
+CONTEXTE:
+- Alexanne s'entraîne de façon hybride: cardio + muscu fonctionnelle, focus endurance
+- Elle prépare des compétitions Hyrox (duo et solo)
+- Elle fait du renforcement course, leg days glute-dominant, calisthenics (objectif muscle-up)
+- PR course: 4:48 min/km sur 2km, vitesses habituelles 10-14 km/h
+- Hyrox Fitness Test PR: 34min57
+- Progressions récentes: Leg Press 150→310lb, Hip Abduction 70→185lb, Hack Press 200→360lb
+- Elle s'entraîne ~5-6x/semaine depuis juin 2025
+
+INSTRUCTIONS:
+- Quand on te demande un workout, utilise les exercices de la banque en priorité
+- Structure tes workouts en blocs clairs (warm-up, blocs, finisher)
+- Tu peux aussi discuter de nutrition, récupération, technique, programmation, progressions
+- Sois concis mais complet. Pas de bullshit.
+
+JOURNAL DE SÉANCES:
+Quand l'utilisateur te dit ce qu'il va faire ou a fait aujourd'hui, tu dois:
+1. Répondre normalement avec tes commentaires/encouragements
+2. À la FIN de ta réponse, ajouter un bloc JSON entre :::JOURNAL_ENTRY::: et :::END_JOURNAL:::
+
+RÈGLES CRITIQUES pour "blocks":
+- Un bloc = UN exercice ou UN segment distinct de la séance
+- CHAQUE exercice mentionné doit être son PROPRE bloc (string séparé dans le tableau)
+- Ne JAMAIS regrouper plusieurs exercices dans un seul bloc
+- Inclure les sets/reps/poids quand mentionnés
+
+EXEMPLE:
+:::JOURNAL_ENTRY:::
+{"routine":"Leg Day Glute","type":"Hypertrophie","duration":"60 min","blocks":["Back Squat 4×10","RDL 4×8","Hip Thrust 3×12","StairMaster 10 min"],"notes":"Séance jambes focus postérieur"}
+:::END_JOURNAL:::
+
+Types valides: Hyrox, Hybride, Hypertrophie, Calisthenics, Renfo Course, Duo, Strongman, Cardio, Récupération.
+Ne mentionne PAS le bloc JSON dans ta réponse textuelle — il sera traité silencieusement par l'app.`;
+
+function buildSystemPrompt(exercises) {
+  const exList = exercises.map(e => `${e.name} (${e.category}, ${e.type}, ${e.equipment}, freq:${e.frequency})`).join("\n");
+  const base = LS.get("at_coach_prompt", DEFAULT_COACH_PROMPT);
+  return base + "\n\nBANQUE D'EXERCICES (" + exercises.length + " exercices):\n" + exList;
+}
+
+async function callClaude(messages, apiKey, exercises) {
+  const systemPrompt = buildSystemPrompt(exercises);
+  const apiMessages = messages.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.text }));
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 2000, system: systemPrompt, messages: apiMessages })
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error("Clé API invalide. Vérifie ta clé dans les réglages.");
+    if (res.status === 429) throw new Error("Trop de requêtes. Attends quelques secondes.");
+    throw new Error("Erreur API: " + res.status);
+  }
+  const data = await res.json();
+  return data.content[0].text;
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 7 — PETITS COMPOSANTS RÉUTILISABLES
+// ══════════════════════════════════════════════════════════════
+const Badge = ({ children, color = "#C47A8A" }) => (
+  <span style={{ display:"inline-block", padding:"2px 7px", borderRadius:4, fontSize:9, fontWeight:500, background:color+"20", color, letterSpacing:0.3 }}>
+    {children}
+  </span>
+);
+
+const Dots = ({ level }) => (
+  <div style={{ display:"flex", gap:2 }}>
+    {[1,2,3,4,5].map(i => <div key={i} style={{ width:5, height:5, borderRadius:3, background: i <= level ? "#C47A8A" : "#333" }} />)}
+  </div>
+);
+
+const FBar = ({ value, max }) => {
+  const p = Math.min((value / max) * 100, 100);
+  const c = p > 60 ? "#C47A8A" : p > 35 ? "#D49A64" : p > 15 ? "#5BA3B5" : "#555";
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:6, minWidth:90 }}>
+      <div style={{ flex:1, height:3, background:"#2a2725", borderRadius:2, overflow:"hidden" }}>
+        <div style={{ width:p+"%", height:"100%", background:c, borderRadius:2, transition:"width 0.3s" }} />
+      </div>
+      <span style={{ fontSize:10, color:"#888", fontWeight:600, minWidth:16, textAlign:"right" }}>{value}</span>
+    </div>
+  );
+};
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 8 — TIMER DE REPOS FLOTTANT
+// ══════════════════════════════════════════════════════════════
+function RestTimer() {
+  const [visible, setVisible]   = useState(false);
+  const [duration, setDuration] = useState(60);
+  const [timeLeft, setTimeLeft] = useState(60);
+  const [running, setRunning]   = useState(false);
+  const [finished, setFinished] = useState(false);
+  const intervalRef = useRef(null);
+
+  // Durées rapides prédéfinies (secondes)
+  const presets = [30, 45, 60, 90, 120];
+
+  useEffect(() => {
+    if (running && timeLeft > 0) {
+      intervalRef.current = setInterval(() => setTimeLeft(t => t - 1), 1000);
+    } else if (timeLeft === 0 && running) {
+      setRunning(false);
+      setFinished(true);
+      clearInterval(intervalRef.current);
+    }
+    return () => clearInterval(intervalRef.current);
+  }, [running, timeLeft]);
+
+  const start = (sec) => {
+    const d = sec || duration;
+    setDuration(d);
+    setTimeLeft(d);
+    setRunning(true);
+    setFinished(false);
+  };
+
+  const reset = () => {
+    clearInterval(intervalRef.current);
+    setRunning(false);
+    setFinished(false);
+    setTimeLeft(duration);
+  };
+
+  const toggle = () => {
+    if (running) { clearInterval(intervalRef.current); setRunning(false); }
+    else if (timeLeft > 0) { setRunning(true); setFinished(false); }
+  };
+
+  const fmt = (s) => {
+    const m = Math.floor(s / 60);
+    const ss = s % 60;
+    return (m < 10 ? "0" : "") + m + ":" + (ss < 10 ? "0" : "") + ss;
+  };
+
+  const progress = ((duration - timeLeft) / duration) * 100;
+  const accentColor = finished ? "#7BB490" : running ? "#C47A8A" : "#C9A84C";
+
+  return (
+    <>
+      {/* Bouton flottant */}
+      <button
+        onClick={() => setVisible(v => !v)}
+        style={{
+          position:"fixed", bottom:24, right:20, zIndex:300,
+          width:50, height:50, borderRadius:25,
+          background: running ? "#C47A8A" : finished ? "#7BB490" : "#1c1a19",
+          border: "1px solid " + (running ? "#C47A8A44" : "#2a2725"),
+          color: running || finished ? "#fff" : "#888",
+          fontSize:18, cursor:"pointer",
+          boxShadow:"0 4px 20px rgba(0,0,0,0.4)",
+          display:"flex", alignItems:"center", justifyContent:"center",
+          transition:"all 0.2s",
+          animation: running ? "timerPulse 2s ease infinite" : "none"
+        }}
+        title="Timer de repos"
+      >
+        {finished ? "✓" : "⏱"}
+      </button>
+
+      {/* Panel flottant */}
+      {visible && (
+        <div
+          className="fade-in"
+          style={{
+            position:"fixed", bottom:84, right:16, zIndex:300,
+            background:"#1c1a19", border:"1px solid #2a2725",
+            borderRadius:14, padding:"16px 16px 14px",
+            width:220, boxShadow:"0 12px 40px rgba(0,0,0,0.5)"
+          }}
+        >
+          {/* Header */}
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+            <span style={{ fontSize:11, fontWeight:700, color:"#ccc", letterSpacing:0.5, textTransform:"uppercase" }}>Repos</span>
+            <button onClick={() => setVisible(false)} style={{ background:"none", border:"none", color:"#555", fontSize:16, cursor:"pointer" }}>×</button>
+          </div>
+
+          {/* Cercle de progression */}
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", marginBottom:12 }}>
+            <div style={{ position:"relative", width:90, height:90 }}>
+              <svg width="90" height="90" style={{ transform:"rotate(-90deg)" }}>
+                <circle cx="45" cy="45" r="38" fill="none" stroke="#2a2725" strokeWidth="5" />
+                <circle cx="45" cy="45" r="38" fill="none" stroke={accentColor} strokeWidth="5"
+                  strokeDasharray={2 * Math.PI * 38}
+                  strokeDashoffset={2 * Math.PI * 38 * (1 - progress / 100)}
+                  style={{ transition:"stroke-dashoffset 0.5s, stroke 0.3s" }}
+                />
+              </svg>
+              <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column" }}>
+                <span style={{ fontSize:20, fontWeight:800, color: accentColor, fontVariantNumeric:"tabular-nums", lineHeight:1 }}>
+                  {fmt(timeLeft)}
+                </span>
+                {finished && <span style={{ fontSize:9, color:"#7BB490", fontWeight:600, marginTop:2 }}>Terminé!</span>}
+              </div>
+            </div>
+          </div>
+
+          {/* Boutons rapides */}
+          <div style={{ display:"flex", gap:4, marginBottom:10, justifyContent:"center" }}>
+            {presets.map(p => (
+              <button key={p} onClick={() => start(p)}
+                style={{
+                  padding:"4px 6px", borderRadius:6, border:"1px solid #2a2725",
+                  background: duration === p && !running ? "#2a2725" : "transparent",
+                  color: duration === p && !running ? "#e8e4e1" : "#666",
+                  fontSize:10, fontWeight:600, cursor:"pointer"
+                }}
+              >
+                {p < 60 ? p+"s" : (p/60)+"m"}
+              </button>
+            ))}
+          </div>
+
+          {/* Contrôles */}
+          <div style={{ display:"flex", gap:6 }}>
+            <button onClick={toggle}
+              style={{
+                flex:2, padding:"9px", borderRadius:8, border:"none",
+                background: running ? "#333" : accentColor,
+                color: running ? "#aaa" : "#fff",
+                fontSize:12, fontWeight:700, cursor:"pointer"
+              }}
+            >
+              {running ? "Pause" : finished ? "Repart" : timeLeft < duration ? "Reprendre" : "Démarrer"}
+            </button>
+            <button onClick={reset}
+              style={{
+                flex:1, padding:"9px", borderRadius:8, border:"1px solid #2a2725",
+                background:"transparent", color:"#666", fontSize:12, cursor:"pointer"
+              }}
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 9 — CARTE EXERCICE
+// ══════════════════════════════════════════════════════════════
+function ExCard({ ex, maxF }) {
+  const [open, setOpen] = useState(false);
+  const c = catColors[ex.category] || "#888";
+  return (
+    <div onClick={() => setOpen(!open)}
+      style={{ background:"#1c1a19", borderLeft:"3px solid "+(open ? c : c+"88"), borderRadius:"2px 8px 8px 2px", padding:"12px 14px", cursor:"pointer", transition:"all 0.15s", marginBottom:4 }}
+    >
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:10 }}>
+        <div style={{ flex:1, minWidth:140 }}>
+          <div style={{ fontSize:12, fontWeight:600, color:"#e8e4e1", marginBottom:4 }}>{ex.name}</div>
+          <div style={{ display:"flex", gap:4, flexWrap:"wrap" }}>
+            <Badge color={c}>{ex.category}</Badge>
+            <Badge color="#888">{ex.type}</Badge>
+            <Badge color="#666">{ex.equipment}</Badge>
+          </div>
+        </div>
+        <div style={{ minWidth:85 }}><FBar value={ex.frequency} max={maxF} /></div>
+      </div>
+      {open && <div style={{ marginTop:8, paddingTop:8, borderTop:"1px solid #2a2725", fontSize:12, color:"#999", lineHeight:1.6 }}>{ex.notes || "—"}</div>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 10 — CARTE ROUTINE
+// ══════════════════════════════════════════════════════════════
+function RtCard({ routine, onStart }) {
+  const [open, setOpen] = useState(false);
+  const c = rtColors[routine.type] || "#888";
+  return (
+    <div onClick={() => setOpen(!open)}
+      style={{ background:"#1c1a19", border:"1px solid "+(open ? c+"44" : "#2a2725"), borderRadius:8, padding:"14px 16px", cursor:"pointer", transition:"all 0.15s", marginBottom:6 }}
+    >
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+        <div style={{ flex:1 }}>
+          <div style={{ fontWeight:600, fontSize:13, color:"#e8e4e1", marginBottom:4 }}>{routine.name}</div>
+          <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
+            <Badge color={c}>{routine.type}</Badge>
+            <Badge color="#888">{routine.duration}</Badge>
+            <Dots level={routine.difficulty} />
+          </div>
+        </div>
+        <span style={{ fontSize:10, color:"#555" }}>{open ? "Fermer" : routine.blocks.length+" blocs"}</span>
+      </div>
+      <div style={{ fontSize:11, color:"#777", marginTop:5, lineHeight:1.5 }}>{routine.description}</div>
+      {open && (
+        <div style={{ marginTop:10, paddingTop:10, borderTop:"1px solid #2a2725" }}>
+          {routine.blocks.map((b, i) => (
+            <div key={i} style={{ display:"flex", gap:8, marginBottom:5 }}>
+              <span style={{ background:c+"20", color:c, fontWeight:600, fontSize:9, width:18, height:18, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>{i+1}</span>
+              <span style={{ fontSize:12, color:"#aaa", lineHeight:1.5 }}>{b}</span>
+            </div>
+          ))}
+          <button onClick={e => { e.stopPropagation(); onStart(routine); }}
+            style={{ marginTop:10, width:"100%", padding:"10px", borderRadius:8, border:"none", background:c, color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer", letterSpacing:0.3 }}
+          >▶  Commencer la séance</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 11 — MODAL AJOUT EXERCICE
+// ══════════════════════════════════════════════════════════════
+function AddModal({ onClose, onSave }) {
+  const [f, setF] = useState({ name:"", category:"Full Body", type:"", equipment:"", notes:"" });
+  const u = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const s = { width:"100%", background:"#222", border:"1px solid #333", borderRadius:8, padding:"10px 12px", fontSize:13, color:"#e8e4e1", outline:"none", marginBottom:10 };
+  const l = { fontSize:10, fontWeight:600, color:"#888", marginBottom:3, display:"block", letterSpacing:0.5, textTransform:"uppercase" };
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal fade-in">
+        <div style={{ display:"flex", justifyContent:"space-between", marginBottom:18 }}>
+          <div style={{ fontSize:16, fontWeight:700 }}>Ajouter un exercice</div>
+          <button onClick={onClose} style={{ background:"none", border:"none", fontSize:20, color:"#555", cursor:"pointer" }}>×</button>
+        </div>
+        <label style={l}>Nom *</label>
+        <input style={s} placeholder="Ex: Bulgarian Split Squat" value={f.name} onChange={e => u("name", e.target.value)} />
+        <label style={l}>Catégorie</label>
+        <select style={{ ...s, cursor:"pointer" }} value={f.category} onChange={e => u("category", e.target.value)}>
+          {CATEGORIES.filter(c => c !== "Tous").map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+          <div><label style={l}>Type</label><input style={s} placeholder="Force, Power..." value={f.type} onChange={e => u("type", e.target.value)} /></div>
+          <div><label style={l}>Équipement</label><input style={s} placeholder="DB, Barre..." value={f.equipment} onChange={e => u("equipment", e.target.value)} /></div>
+        </div>
+        <label style={l}>Notes</label>
+        <textarea style={{ ...s, minHeight:60, resize:"vertical" }} placeholder="Séries, reps, conseils..." value={f.notes} onChange={e => u("notes", e.target.value)} />
+        <div style={{ display:"flex", gap:8, marginTop:6 }}>
+          <button onClick={onClose} style={{ flex:1, padding:"10px", borderRadius:8, border:"1px solid #333", background:"transparent", color:"#888", fontWeight:500, fontSize:13, cursor:"pointer" }}>Annuler</button>
+          <button onClick={() => { if (f.name.trim()) { onSave(f); onClose(); } }}
+            style={{ flex:1, padding:"10px", borderRadius:8, border:"none", background:f.name.trim() ? "#e8e4e1" : "#333", color:f.name.trim() ? "#131211" : "#555", fontWeight:700, fontSize:13, cursor:f.name.trim() ? "pointer" : "default" }}
+          >Ajouter</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 12 — MODE SÉANCE (CHRONO)
+// ══════════════════════════════════════════════════════════════
+function SessionMode({ routine, onEnd }) {
+  const [step, setStep]       = useState(0);
+  const [sec, setSec]         = useState(0);
+  const [running, setRunning] = useState(true);
+  const interval = useRef(null);
+
+  useEffect(() => {
+    if (running) interval.current = setInterval(() => setSec(s => s + 1), 1000);
+    else clearInterval(interval.current);
+    return () => clearInterval(interval.current);
+  }, [running]);
+
+  const fmt = (s) => { const m = Math.floor(s/60); const ss = s%60; return (m<10?"0":"")+m+":"+(ss<10?"0":"")+ss; };
+  const c = rtColors[routine.type] || "#C47A8A";
+  const total = routine.blocks.length;
+  const done = step >= total;
+
+  return (
+    <div className="session-overlay fade-in">
+      {/* Top bar */}
+      <div style={{ background:"#1c1a19", borderBottom:"1px solid #2a2725", padding:"16px 20px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+        <button onClick={onEnd} style={{ background:"none", border:"none", color:"#888", fontSize:13, cursor:"pointer", fontWeight:500 }}>← Terminer</button>
+        <div style={{ fontSize:28, fontWeight:800, color:c, fontVariantNumeric:"tabular-nums", animation:running?"timerPulse 2s ease infinite":"none" }}>{fmt(sec)}</div>
+        <button onClick={() => setRunning(!running)}
+          style={{ background:running?"#333":c, color:running?"#888":"#fff", border:"none", borderRadius:8, padding:"8px 14px", fontSize:12, fontWeight:600, cursor:"pointer" }}
+        >{running ? "Pause" : "Reprendre"}</button>
+      </div>
+
+      {/* Titre */}
+      <div style={{ padding:"20px 20px 8px", textAlign:"center" }}>
+        <div style={{ fontSize:16, fontWeight:700, color:"#e8e4e1" }}>{routine.name}</div>
+        <div style={{ fontSize:12, color:"#666", marginTop:4 }}>{done ? "Séance terminée!" : "Bloc "+(step+1)+" / "+total}</div>
+      </div>
+
+      {/* Barre de progression */}
+      <div style={{ padding:"0 20px", marginBottom:16 }}>
+        <div style={{ height:3, background:"#2a2725", borderRadius:2, overflow:"hidden" }}>
+          <div style={{ width:((done?total:step)/total*100)+"%", height:"100%", background:c, borderRadius:2, transition:"width 0.4s" }} />
+        </div>
+      </div>
+
+      {/* Blocs */}
+      <div style={{ flex:1, padding:"0 20px 20px", overflowY:"auto" }}>
+        {routine.blocks.map((b, i) => {
+          const active = i === step, past = i < step;
+          return (
+            <div key={i} style={{
+              background: active ? c+"15" : past ? "#1a1918" : "#1c1a19",
+              border: active ? "1px solid "+c+"44" : "1px solid #2a2725",
+              borderRadius:10, padding:active?"20px":"12px 16px", marginBottom:8, transition:"all 0.2s", opacity:past?0.5:1
+            }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+                  <span style={{
+                    width:24, height:24, borderRadius:6,
+                    background: past?"#7BB490":active?c:"#333",
+                    color: past||active?"#fff":"#555",
+                    display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, flexShrink:0
+                  }}>{past ? "✓" : i+1}</span>
+                  <span style={{ fontSize:active?14:12, fontWeight:active?600:400, color:active?"#e8e4e1":past?"#666":"#aaa" }}>{b}</span>
+                </div>
+              </div>
+              {active && !done && (
+                <button onClick={e => { e.stopPropagation(); setStep(step+1); }}
+                  style={{ marginTop:14, width:"100%", padding:"12px", borderRadius:8, border:"none", background:c, color:"#fff", fontWeight:700, fontSize:14, cursor:"pointer", letterSpacing:0.3 }}
+                >{step < total-1 ? "Bloc suivant →" : "Terminer ✓"}</button>
+              )}
+            </div>
+          );
+        })}
+        {done && (
+          <div style={{ textAlign:"center", padding:"24px 0" }}>
+            <div style={{ fontSize:36, marginBottom:8 }}>🏆</div>
+            <div style={{ fontSize:18, fontWeight:700, color:"#e8e4e1", marginBottom:4 }}>Séance complétée!</div>
+            <div style={{ fontSize:14, color:"#888", marginBottom:16 }}>Durée: {fmt(sec)}</div>
+            <button onClick={onEnd} style={{ padding:"12px 32px", borderRadius:8, border:"none", background:"#e8e4e1", color:"#131211", fontWeight:700, fontSize:14, cursor:"pointer" }}>
+              Sauvegarder et fermer
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 13 — COACH IA
+// ══════════════════════════════════════════════════════════════
+function CoachTab({ pool }) {
+  const [apiKey, setApiKey]         = useState(() => localStorage.getItem("at_api_key") || "");
+  const [keyInput, setKeyInput]     = useState("");
+  const [convos, setConvos]         = useState(() => LS.get("at_coach_convos", []));
+  const [activeId, setActiveId]     = useState(() => { const c = LS.get("at_coach_convos", []); return c.length ? c[0].id : null; });
+  const [input, setInput]           = useState("");
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState("");
+  const [showSettings, setShowSettings] = useState(false);
+  const [showHistory, setShowHistory]   = useState(false);
+  const [promptText, setPromptText] = useState(() => LS.get("at_coach_prompt", DEFAULT_COACH_PROMPT));
+  const ref = useRef(null);
+  const dropRef = useRef(null);
+
+  useEffect(() => {
+    if (!showHistory) return;
+    const handler = (e) => { if (dropRef.current && !dropRef.current.contains(e.target)) setShowHistory(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showHistory]);
+
+  const activeConvo = convos.find(c => c.id === activeId);
+  const msgs = activeConvo ? activeConvo.messages : [];
+  useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [msgs, loading]);
+
+  const saveConvos = (u) => { setConvos(u); LS.set("at_coach_convos", u); };
+
+  const newConvo = () => {
+    const id = "c_" + Date.now();
+    const c = { id, title: "Nouvelle conversation", messages: [], date: new Date().toISOString().slice(0,10) };
+    const u = [c, ...convos]; saveConvos(u); setActiveId(id); setShowHistory(false);
+  };
+
+  const deleteConvo = (id) => {
+    const u = convos.filter(c => c.id !== id); saveConvos(u);
+    if (activeId === id) setActiveId(u.length ? u[0].id : null);
+  };
+
+  const updateMsgs = (newMsgs, title) => {
+    const u = convos.map(c => c.id === activeId ? { ...c, messages: newMsgs, title: title || c.title } : c);
+    saveConvos(u);
+  };
+
+  const saveKey = () => { if (!keyInput.trim()) return; localStorage.setItem("at_api_key", keyInput.trim()); setApiKey(keyInput.trim()); setKeyInput(""); if (!convos.length) newConvo(); };
+  const clearKey = () => { localStorage.removeItem("at_api_key"); setApiKey(""); };
+  const savePrompt = () => { LS.set("at_coach_prompt", promptText); setShowSettings(false); };
+  const resetPrompt = () => setPromptText(DEFAULT_COACH_PROMPT);
+
+  const send = async () => {
+    if (!input.trim() || loading || !activeId) return;
+    const txt = input.trim(); setInput(""); setError("");
+    const newMsgs = [...msgs, { role:"user", text:txt }];
+    const title = msgs.length === 0 ? txt.slice(0,50)+(txt.length>50?"...":"") : undefined;
+    updateMsgs(newMsgs, title);
+    setLoading(true);
+    try {
+      const rawReply = await callClaude(newMsgs, apiKey, pool);
+      let reply = rawReply;
+      const journalMatch = rawReply.match(/:::JOURNAL_ENTRY:::\s*(\{[\s\S]*?\})\s*:::END_JOURNAL:::/);
+      if (journalMatch) {
+        reply = rawReply.replace(/:::JOURNAL_ENTRY:::[\s\S]*?:::END_JOURNAL:::/, "").trim();
+        try {
+          const entry = JSON.parse(journalMatch[1]);
+          const jEntry = { date: new Date().toISOString().slice(0,10), routine: entry.routine||"Séance", type: entry.type||"Hybride", duration: entry.duration||"", blocks: entry.blocks||[], notes: entry.notes||"" };
+          const jrnl = LS.get("at_journal", []); jrnl.unshift(jEntry); LS.set("at_journal", jrnl);
+          reply += "\n\n✅ Séance sauvegardée dans ton Journal!";
+        } catch(pe) {}
+      }
+      const finalMsgs = [...newMsgs, { role:"assistant", text:reply }];
+      updateMsgs(finalMsgs, title);
+    } catch(e) {
+      setError(e.message);
+      if (e.message.includes("invalide")) { localStorage.removeItem("at_api_key"); setApiKey(""); }
+    }
+    setLoading(false);
+  };
+
+  // ── Écran saisie clé API ──
+  if (!apiKey) return (
+    <div style={{ maxWidth:480, margin:"0 auto", padding:"40px 0" }}>
+      <div style={{ textAlign:"center", marginBottom:24 }}>
+        <div style={{ fontSize:32, marginBottom:8 }}>🧠</div>
+        <div style={{ fontSize:18, fontWeight:700, color:"#e8e4e1", marginBottom:6 }}>Coach IA</div>
+        <div style={{ fontSize:13, color:"#888", lineHeight:1.6 }}>Pour activer ton coach, tu as besoin d'une clé API Anthropic.</div>
+      </div>
+      <div style={{ background:"#1c1a19", borderRadius:10, padding:"16px", marginBottom:16 }}>
+        <div style={{ fontSize:12, fontWeight:600, color:"#ccc", marginBottom:8 }}>Comment obtenir ta clé:</div>
+        <div style={{ fontSize:12, color:"#888", lineHeight:1.7, whiteSpace:"pre-line" }}>
+          {"1. Va sur console.anthropic.com\n2. Crée un compte (si pas déjà fait)\n3. Va dans API Keys\n4. Crée une nouvelle clé\n5. Copie-la et colle-la ici"}
+        </div>
+      </div>
+      <div style={{ display:"flex", gap:8 }}>
+        <input type="password" value={keyInput} onChange={e => setKeyInput(e.target.value)} onKeyDown={e => e.key==="Enter" && saveKey()} placeholder="sk-ant-..."
+          style={{ flex:1, background:"#222", border:"1px solid #333", borderRadius:8, padding:"12px 14px", fontSize:13, color:"#e8e4e1", outline:"none" }}
+        />
+        <button onClick={saveKey} style={{ background:keyInput.trim()?"#e8e4e1":"#333", color:keyInput.trim()?"#131211":"#555", border:"none", borderRadius:8, padding:"12px 20px", fontWeight:700, fontSize:13, cursor:keyInput.trim()?"pointer":"default" }}>
+          Activer
+        </button>
+      </div>
+      <div style={{ fontSize:10, color:"#555", marginTop:10, textAlign:"center" }}>Ta clé reste dans ton navigateur, jamais partagée.</div>
+    </div>
+  );
+
+  // ── Réglages ──
+  if (showSettings) return (
+    <div className="fade-in">
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+        <div style={{ fontSize:15, fontWeight:700 }}>Réglages du Coach</div>
+        <button onClick={() => setShowSettings(false)} style={{ background:"none", border:"none", fontSize:18, color:"#666", cursor:"pointer" }}>×</button>
+      </div>
+      <div style={{ fontSize:11, fontWeight:600, color:"#888", marginBottom:6, textTransform:"uppercase", letterSpacing:0.5 }}>Instructions personnalisées</div>
+      <div style={{ fontSize:11, color:"#555", marginBottom:10, lineHeight:1.5 }}>Modifie ces instructions pour changer le comportement du coach.</div>
+      <textarea value={promptText} onChange={e => setPromptText(e.target.value)}
+        style={{ width:"100%", minHeight:280, background:"#1c1a19", border:"1px solid #2a2725", borderRadius:8, padding:"12px", fontSize:12, color:"#ccc", outline:"none", lineHeight:1.6, resize:"vertical" }}
+      />
+      <div style={{ display:"flex", gap:8, marginTop:12 }}>
+        <button onClick={resetPrompt} style={{ padding:"9px 14px", borderRadius:8, border:"1px solid #333", background:"transparent", color:"#888", fontSize:12, fontWeight:500, cursor:"pointer" }}>Réinitialiser</button>
+        <button onClick={clearKey} style={{ padding:"9px 14px", borderRadius:8, border:"1px solid #C4686833", background:"transparent", color:"#C46868", fontSize:12, fontWeight:500, cursor:"pointer" }}>Changer la clé API</button>
+        <div style={{ flex:1 }} />
+        <button onClick={savePrompt} style={{ padding:"9px 20px", borderRadius:8, border:"none", background:"#e8e4e1", color:"#131211", fontSize:12, fontWeight:700, cursor:"pointer" }}>Sauvegarder</button>
+      </div>
+    </div>
+  );
+
+  // ── Grouper conversations par date ──
+  const groupedConvos = useMemo(() => {
+    const groups = {}; const today = new Date().toISOString().slice(0,10); const yesterday = new Date(Date.now()-86400000).toISOString().slice(0,10);
+    convos.forEach(c => {
+      let label;
+      if (c.date === today) label = "Aujourd'hui";
+      else if (c.date === yesterday) label = "Hier";
+      else { const [y,m,d] = c.date.split("-"); const mn = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"]; label = d+" "+mn[parseInt(m)-1]+" "+y; }
+      if (!groups[label]) groups[label] = [];
+      groups[label].push(c);
+    });
+    return Object.entries(groups);
+  }, [convos]);
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", minHeight:500 }}>
+      {/* Top bar */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10, paddingBottom:8, borderBottom:"1px solid #2a2725" }}>
+        <div ref={dropRef} style={{ display:"flex", alignItems:"center", gap:6, flex:1, minWidth:0, position:"relative" }}>
+          <div style={{ width:6, height:6, borderRadius:3, background:"#7BB490", flexShrink:0 }} />
+          <div onClick={() => setShowHistory(!showHistory)} style={{ display:"flex", alignItems:"center", gap:4, cursor:"pointer", minWidth:0 }}>
+            <span style={{ fontSize:11, color:"#ccc", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:200, fontWeight:500 }}>
+              {activeConvo ? activeConvo.title : "Coach IA"}
+            </span>
+            <span style={{ fontSize:8, color:"#555", transition:"transform 0.2s", transform:showHistory?"rotate(180deg)":"rotate(0)" }}>▼</span>
+          </div>
+          {/* Dropdown conversations */}
+          {showHistory && (
+            <div style={{ position:"absolute", top:"100%", left:0, marginTop:8, background:"#1c1a19", border:"1px solid #2a2725", borderRadius:10, width:300, maxHeight:400, overflowY:"auto", zIndex:50, boxShadow:"0 12px 40px rgba(0,0,0,0.5)" }}>
+              <div style={{ padding:"10px 12px", borderBottom:"1px solid #2a2725", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <span style={{ fontSize:11, fontWeight:600, color:"#888" }}>{convos.length} conversation{convos.length>1?"s":""}</span>
+                <button onClick={e => { e.stopPropagation(); newConvo(); }} style={{ background:"#e8e4e1", color:"#131211", border:"none", borderRadius:6, padding:"4px 12px", fontSize:10, fontWeight:700, cursor:"pointer" }}>+ Nouvelle</button>
+              </div>
+              {!convos.length && <div style={{ padding:"16px", textAlign:"center", color:"#555", fontSize:11 }}>Aucune conversation</div>}
+              {groupedConvos.map(([dateLabel, items]) => (
+                <div key={dateLabel}>
+                  <div style={{ padding:"8px 12px 4px", fontSize:9, fontWeight:600, color:"#555", letterSpacing:0.8, textTransform:"uppercase" }}>{dateLabel}</div>
+                  {items.map(c => (
+                    <div key={c.id} onClick={() => { setActiveId(c.id); setShowHistory(false); }}
+                      style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px", cursor:"pointer", background:c.id===activeId?"#2a2725":"transparent", transition:"background 0.1s" }}
+                    >
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:11, fontWeight:500, color:c.id===activeId?"#e8e4e1":"#aaa", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{c.title}</div>
+                        <div style={{ fontSize:9, color:"#555", marginTop:1 }}>{c.messages.length} msg</div>
+                      </div>
+                      <button onClick={e => { e.stopPropagation(); deleteConvo(c.id); }} style={{ background:"none", border:"none", color:"#333", fontSize:12, cursor:"pointer", padding:"2px 4px", flexShrink:0 }}>×</button>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div style={{ display:"flex", gap:6, flexShrink:0 }}>
+          <button onClick={newConvo} style={{ background:"none", border:"1px solid #333", borderRadius:6, padding:"4px 10px", fontSize:10, color:"#666", cursor:"pointer" }}>+ Nouvelle</button>
+          <button onClick={() => setShowSettings(true)} style={{ background:"none", border:"1px solid #333", borderRadius:6, padding:"4px 10px", fontSize:10, color:"#666", cursor:"pointer" }}>⚙</button>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div ref={ref} style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:10, paddingBottom:12 }}>
+        {!activeId && <div style={{ textAlign:"center", padding:"40px", color:"#555" }}>Clique sur "+ Nouvelle" pour commencer.</div>}
+        {activeId && !msgs.length && (
+          <div style={{ textAlign:"center", padding:"30px 20px" }}>
+            <div style={{ fontSize:28, marginBottom:8 }}>💬</div>
+            <div style={{ fontSize:13, color:"#888", lineHeight:1.7, whiteSpace:"pre-line" }}>{"Pose-moi n'importe quelle question!\n\n• \"Fais-moi un workout de jambes\"\n• \"Comment améliorer mon Hyrox?\"\n• \"Quoi manger avant un training?\"\n• \"Plan de 4 semaines pour mes pull-ups\"\n• \"Analyse mes progressions\""}</div>
+          </div>
+        )}
+        {msgs.map((m, i) => (
+          <div key={i} className="fade-in" style={{ display:"flex", justifyContent:m.role==="user"?"flex-end":"flex-start" }}>
+            <div style={{
+              maxWidth:"88%", background:m.role==="user"?"#e8e4e1":"#1c1a19", color:m.role==="user"?"#131211":"#ccc",
+              border:m.role==="user"?"none":"1px solid #2a2725",
+              borderRadius:m.role==="user"?"12px 12px 2px 12px":"12px 12px 12px 2px",
+              padding:"10px 14px", fontSize:13, lineHeight:1.65, whiteSpace:"pre-wrap"
+            }}>{m.text}</div>
+          </div>
+        ))}
+        {loading && <div className="typing" style={{ background:"#1c1a19", border:"1px solid #2a2725", borderRadius:"12px 12px 12px 2px", padding:"10px 14px", fontSize:13, color:"#555", width:"fit-content" }}>Réflexion en cours...</div>}
+        {error && <div style={{ background:"#C4686815", border:"1px solid #C4686833", borderRadius:8, padding:"8px 12px", fontSize:12, color:"#C46868" }}>{error}</div>}
+      </div>
+
+      {/* Input */}
+      {activeId && (
+        <div style={{ display:"flex", gap:8, paddingTop:12, borderTop:"1px solid #2a2725", marginTop:8, flexShrink:0 }}>
+          <input type="text" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key==="Enter" && !e.shiftKey && send()} placeholder="Écris ton message..." disabled={loading}
+            style={{ flex:1, background:"#1c1a19", border:"1px solid #333", borderRadius:8, padding:"11px 14px", fontSize:13, color:"#e8e4e1", outline:"none", opacity:loading?0.5:1 }}
+          />
+          <button onClick={send} disabled={loading}
+            style={{ background:input.trim()&&!loading?"#e8e4e1":"#333", color:input.trim()&&!loading?"#131211":"#555", border:"none", borderRadius:8, padding:"11px 18px", fontWeight:700, fontSize:13, cursor:input.trim()&&!loading?"pointer":"default", transition:"all 0.2s", flexShrink:0 }}
+          >{loading ? "..." : "Envoyer"}</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 14 — JOURNAL — ENTRÉE
+// ══════════════════════════════════════════════════════════════
+function JournalEntry({ entry, index, onUpdate, onDelete, onStart }) {
+  const [open, setOpen]       = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm]       = useState(entry);
+  const [blockText, setBlockText] = useState((entry.blocks||[]).join("\n"));
+  const tc = rtColors[entry.type] || "#888";
+  const blocks = entry.blocks?.length ? entry.blocks : (entry.notes ? entry.notes.split("\n").filter(l => l.trim()) : []);
+  const s = { width:"100%", background:"#222", border:"1px solid #333", borderRadius:6, padding:"8px 10px", fontSize:12, color:"#e8e4e1", outline:"none", marginBottom:6 };
+  const l = { fontSize:9, fontWeight:600, color:"#666", marginBottom:2, display:"block", letterSpacing:0.5, textTransform:"uppercase" };
+
+  const save = () => { const nb = blockText.split("\n").filter(l => l.trim()); onUpdate(index, { ...form, blocks:nb }); setEditing(false); };
+  const cancel = () => { setForm(entry); setBlockText((entry.blocks||[]).join("\n")); setEditing(false); };
+
+  if (editing) return (
+    <div className="fade-in" style={{ background:"#1c1a19", border:"1px solid "+tc+"44", borderRadius:10, padding:"16px", marginBottom:6 }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:6, marginBottom:4 }}>
+        <div><label style={l}>Date</label><input type="date" style={s} value={form.date||""} onChange={e => setForm(p => ({ ...p, date:e.target.value }))} /></div>
+        <div><label style={l}>Type</label>
+          <select style={{ ...s, cursor:"pointer" }} value={form.type||"Hybride"} onChange={e => setForm(p => ({ ...p, type:e.target.value }))}>
+            {ROUTINE_TYPES.filter(t => t!=="Tous").map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div><label style={l}>Durée</label><input style={s} value={form.duration||""} placeholder="55 min" onChange={e => setForm(p => ({ ...p, duration:e.target.value }))} /></div>
+      </div>
+      <label style={l}>Nom</label>
+      <input style={s} value={form.routine||""} onChange={e => setForm(p => ({ ...p, routine:e.target.value }))} />
+      <label style={l}>Blocs (1 par ligne)</label>
+      <textarea style={{ ...s, minHeight:100, resize:"vertical", lineHeight:1.6 }} value={blockText} placeholder="Bloc 1: Back Squat 4×10\nBloc 2: RDL 4×8" onChange={e => setBlockText(e.target.value)} />
+      <label style={l}>Notes</label>
+      <textarea style={{ ...s, minHeight:40, resize:"vertical" }} value={form.notes||""} onChange={e => setForm(p => ({ ...p, notes:e.target.value }))} />
+      <div style={{ display:"flex", gap:6, marginTop:4 }}>
+        <button onClick={cancel} style={{ flex:1, padding:"8px", borderRadius:6, border:"1px solid #333", background:"transparent", color:"#888", fontSize:12, fontWeight:500, cursor:"pointer" }}>Annuler</button>
+        <button onClick={save} style={{ flex:1, padding:"8px", borderRadius:6, border:"none", background:"#e8e4e1", color:"#131211", fontSize:12, fontWeight:700, cursor:"pointer" }}>Sauvegarder</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div onClick={() => setOpen(!open)}
+      style={{ background:"#1c1a19", border:"1px solid "+(open?tc+"44":"#2a2725"), borderRadius:10, padding:"14px 16px", cursor:"pointer", transition:"all 0.15s", marginBottom:6 }}
+    >
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+        <div style={{ flex:1 }}>
+          <div style={{ fontWeight:600, fontSize:13, color:"#e8e4e1", marginBottom:4 }}>{entry.routine}</div>
+          <div style={{ display:"flex", gap:4, alignItems:"center", flexWrap:"wrap" }}>
+            <Badge color={tc}>{entry.type}</Badge>
+            {entry.duration && <Badge color="#888">{entry.duration}</Badge>}
+            <Badge color="#555">{entry.date}</Badge>
+          </div>
+        </div>
+        <div style={{ display:"flex", gap:4, alignItems:"center", flexShrink:0 }}>
+          <span style={{ fontSize:10, color:"#555" }}>{open?"Fermer":blocks.length+" bloc"+(blocks.length>1?"s":"")}</span>
+          <button onClick={e => { e.stopPropagation(); setEditing(true); }} style={{ background:"none", border:"none", color:"#555", fontSize:11, cursor:"pointer", padding:"2px 6px" }}>✎</button>
+          <button onClick={e => { e.stopPropagation(); onDelete(index); }} style={{ background:"none", border:"none", color:"#444", fontSize:14, cursor:"pointer", padding:"2px 6px" }}>×</button>
+        </div>
+      </div>
+      {entry.notes && <div style={{ fontSize:11, color:"#777", marginTop:5, lineHeight:1.5 }}>{entry.notes}</div>}
+      {open && (
+        <div style={{ marginTop:10, paddingTop:10, borderTop:"1px solid #2a2725" }}>
+          {blocks.map((b, i) => (
+            <div key={i} style={{ display:"flex", gap:8, marginBottom:5 }}>
+              <span style={{ background:tc+"20", color:tc, fontWeight:600, fontSize:9, width:18, height:18, borderRadius:4, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, marginTop:1 }}>{i+1}</span>
+              <span style={{ fontSize:12, color:"#aaa", lineHeight:1.5 }}>{b}</span>
+            </div>
+          ))}
+          {!blocks.length && <div style={{ fontSize:12, color:"#555", fontStyle:"italic" }}>Aucun bloc détaillé.</div>}
+          {blocks.length > 0 && (
+            <button onClick={e => { e.stopPropagation(); onStart({ name:entry.routine, type:entry.type, duration:entry.duration, difficulty:3, blocks }); }}
+              style={{ marginTop:10, width:"100%", padding:"10px", borderRadius:8, border:"none", background:tc, color:"#fff", fontWeight:700, fontSize:13, cursor:"pointer", letterSpacing:0.3 }}
+            >▶  Commencer la séance</button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 15 — JOURNAL TAB
+// ══════════════════════════════════════════════════════════════
+function JournalTab({ onStart }) {
+  const loadEntries = () => {
+    const custom = LS.get("at_journal", []);
+    const customDates = new Set(custom.map(e => e.date+"|"+e.routine));
+    const base = BASE_JOURNAL.filter(e => !customDates.has(e.date+"|"+e.routine));
+    return [...custom, ...base].sort((a, b) => b.date.localeCompare(a.date));
+  };
+  const [entries, setEntries]   = useState(loadEntries);
+  const [showAdd, setShowAdd]   = useState(false);
+  const [view, setView]         = useState("calendar");
+  const [calMonth, setCalMonth] = useState(() => { const n = new Date(); return { y:n.getFullYear(), m:n.getMonth() }; });
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [form, setForm] = useState({ date:new Date().toISOString().slice(0,10), routine:"", type:"Hybride", duration:"", blocks:[], notes:"" });
+
+  useEffect(() => { setEntries(loadEntries()); }, []);
+
+  const persist = (u) => { setEntries(u); LS.set("at_journal", u); };
+  const save = () => { if (!form.routine.trim()) return; persist([{ ...form }, ...entries]); setForm({ date:new Date().toISOString().slice(0,10), routine:"", type:"Hybride", duration:"", blocks:[], notes:"" }); setShowAdd(false); };
+  const del = (i) => persist(entries.filter((_, j) => j!==i));
+  const update = (i, data) => { const u = [...entries]; u[i] = data; persist(u); };
+
+  const s = { width:"100%", background:"#222", border:"1px solid #333", borderRadius:8, padding:"10px 12px", fontSize:13, color:"#e8e4e1", outline:"none", marginBottom:10 };
+  const l = { fontSize:10, fontWeight:600, color:"#888", marginBottom:3, display:"block", letterSpacing:0.5, textTransform:"uppercase" };
+
+  const grouped = {};
+  entries.forEach((e, i) => { const m = e.date?.slice(0,7)||"autre"; if (!grouped[m]) grouped[m]=[]; grouped[m].push({ entry:e, index:i }); });
+  const monthNames = {"01":"Janvier","02":"Février","03":"Mars","04":"Avril","05":"Mai","06":"Juin","07":"Juillet","08":"Août","09":"Septembre","10":"Octobre","11":"Novembre","12":"Décembre"};
+  const monthFull = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+  const dayLabels = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
+
+  const calEntries = useMemo(() => {
+    const map = {};
+    entries.forEach(e => { if (e.date) { if (!map[e.date]) map[e.date]=[]; map[e.date].push(e); } });
+    return map;
+  }, [entries]);
+
+  const calDays = useMemo(() => {
+    const first = new Date(calMonth.y, calMonth.m, 1);
+    const startDay = first.getDay();
+    const daysInMonth = new Date(calMonth.y, calMonth.m+1, 0).getDate();
+    const days = [];
+    for (let i=0; i<startDay; i++) days.push(null);
+    for (let d=1; d<=daysInMonth; d++) days.push(d);
+    return days;
+  }, [calMonth]);
+
+  const todayStr = new Date().toISOString().slice(0,10);
+  const dateStr = (d) => calMonth.y+"-"+String(calMonth.m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+  const selectedEntries = selectedDate ? entries.map((e,i) => ({ entry:e, index:i })).filter(({entry}) => entry.date===selectedDate) : [];
+  const prevMonth = () => setCalMonth(p => p.m===0 ? { y:p.y-1, m:11 } : { y:p.y, m:p.m-1 });
+  const nextMonth = () => setCalMonth(p => p.m===11 ? { y:p.y+1, m:0 } : { y:p.y, m:p.m+1 });
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <div style={{ fontSize:12, fontWeight:600, color:"#e8e4e1" }}>{entries.length} séances</div>
+          <div style={{ display:"flex", background:"#222", borderRadius:6, padding:2 }}>
+            <button onClick={() => setView("calendar")} style={{ background:view==="calendar"?"#333":"transparent", color:view==="calendar"?"#e8e4e1":"#555", border:"none", borderRadius:4, padding:"4px 10px", fontSize:10, fontWeight:500, cursor:"pointer" }}>Calendrier</button>
+            <button onClick={() => setView("list")} style={{ background:view==="list"?"#333":"transparent", color:view==="list"?"#e8e4e1":"#555", border:"none", borderRadius:4, padding:"4px 10px", fontSize:10, fontWeight:500, cursor:"pointer" }}>Liste</button>
+          </div>
+        </div>
+        <button onClick={() => setShowAdd(!showAdd)} style={{ background:showAdd?"#333":"#e8e4e1", color:showAdd?"#888":"#131211", border:"none", borderRadius:8, padding:"8px 16px", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+          {showAdd ? "Annuler" : "+ Ajouter"}
+        </button>
+      </div>
+
+      {/* Formulaire ajout */}
+      {showAdd && (
+        <div className="fade-in" style={{ background:"#1c1a19", border:"1px solid #2a2725", borderRadius:10, padding:"16px", marginBottom:16 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            <div><label style={l}>Date</label><input type="date" style={s} value={form.date} onChange={e => setForm(p => ({ ...p, date:e.target.value }))} /></div>
+            <div><label style={l}>Type</label>
+              <select style={{ ...s, cursor:"pointer" }} value={form.type} onChange={e => setForm(p => ({ ...p, type:e.target.value }))}>
+                {ROUTINE_TYPES.filter(t => t!=="Tous").map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+          <label style={l}>Nom *</label>
+          <input style={s} placeholder="Ex: Leg Day Glute + StairMaster" value={form.routine} onChange={e => setForm(p => ({ ...p, routine:e.target.value }))} />
+          <label style={l}>Durée</label>
+          <input style={s} placeholder="Ex: 55 min" value={form.duration} onChange={e => setForm(p => ({ ...p, duration:e.target.value }))} />
+          <label style={l}>Notes</label>
+          <textarea style={{ ...s, minHeight:50, resize:"vertical" }} placeholder="PRs, sensations..." value={form.notes} onChange={e => setForm(p => ({ ...p, notes:e.target.value }))} />
+          <button onClick={save} style={{ width:"100%", padding:"10px", borderRadius:8, border:"none", background:form.routine.trim()?"#e8e4e1":"#333", color:form.routine.trim()?"#131211":"#555", fontWeight:700, fontSize:13, cursor:form.routine.trim()?"pointer":"default" }}>Sauvegarder</button>
+        </div>
+      )}
+
+      {/* Vue Calendrier */}
+      {view === "calendar" && (
+        <div>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+            <button onClick={prevMonth} style={{ background:"none", border:"1px solid #2a2725", borderRadius:6, padding:"6px 12px", color:"#888", fontSize:14, cursor:"pointer" }}>←</button>
+            <div style={{ fontSize:14, fontWeight:700, color:"#e8e4e1" }}>{monthFull[calMonth.m]} {calMonth.y}</div>
+            <button onClick={nextMonth} style={{ background:"none", border:"1px solid #2a2725", borderRadius:6, padding:"6px 12px", color:"#888", fontSize:14, cursor:"pointer" }}>→</button>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(7, 1fr)", gap:2, marginBottom:4 }}>
+            {dayLabels.map(d => <div key={d} style={{ textAlign:"center", fontSize:9, fontWeight:600, color:"#555", padding:"4px 0", textTransform:"uppercase", letterSpacing:0.5 }}>{d}</div>)}
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(7, 1fr)", gap:2, marginBottom:16 }}>
+            {calDays.map((d, i) => {
+              if (d === null) return <div key={"e"+i} />;
+              const ds = dateStr(d);
+              const dayEntries = calEntries[ds] || [];
+              const has = dayEntries.length > 0;
+              const isToday = ds === todayStr;
+              const isSelected = ds === selectedDate;
+              const tc = has ? (rtColors[dayEntries[0].type] || "#888") : "#333";
+              return (
+                <div key={d} onClick={() => setSelectedDate(isSelected ? null : ds)}
+                  style={{ position:"relative", aspectRatio:"1", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", borderRadius:8, cursor:"pointer", transition:"all 0.15s",
+                    background: isSelected ? tc+"25" : has ? "#1c1a19" : "transparent",
+                    border: isSelected ? "1px solid "+tc+"66" : isToday ? "1px solid #444" : "1px solid transparent"
+                  }}
+                >
+                  <span style={{ fontSize:12, fontWeight:isToday?700:has?600:400, color:isToday?"#e8e4e1":has?"#ccc":"#444" }}>{d}</span>
+                  {has && <div style={{ display:"flex", gap:2, marginTop:2 }}>
+                    {dayEntries.slice(0,3).map((e,j) => <div key={j} style={{ width:5, height:5, borderRadius:3, background:rtColors[e.type]||"#888" }} />)}
+                  </div>}
+                  {dayEntries.length > 1 && <span style={{ fontSize:7, color:"#888", marginTop:1 }}>{dayEntries.length}x</span>}
+                </div>
+              );
+            })}
+          </div>
+          {selectedDate && (
+            <div className="fade-in">
+              <div style={{ fontSize:11, fontWeight:600, color:"#888", marginBottom:8, paddingBottom:6, borderBottom:"1px solid #2a2725" }}>
+                {selectedDate} — {selectedEntries.length} séance{selectedEntries.length>1?"s":""}
+              </div>
+              {selectedEntries.map(({ entry, index }) => <JournalEntry key={index} entry={entry} index={index} onUpdate={update} onDelete={del} onStart={onStart} />)}
+              {!selectedEntries.length && <div style={{ textAlign:"center", padding:"16px", color:"#555", fontSize:12 }}>Aucune séance ce jour.</div>}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Vue Liste */}
+      {view === "list" && (
+        <div>
+          <div style={{ fontSize:10, color:"#555", marginBottom:14, fontStyle:"italic" }}>Astuce: dis au Coach IA "aujourd'hui je fais..." et il sauvegarde ta séance ici automatiquement.</div>
+          {Object.entries(grouped).map(([month, items]) => {
+            const [y, m] = month.split("-");
+            const label = (monthNames[m]||m)+" "+y;
+            return (
+              <div key={month} style={{ marginBottom:20 }}>
+                <div style={{ fontSize:11, fontWeight:600, color:"#555", letterSpacing:1, textTransform:"uppercase", marginBottom:8, paddingBottom:6, borderBottom:"1px solid #2a2725" }}>
+                  {label} — {items.length} séance{items.length>1?"s":""}
+                </div>
+                {items.map(({ entry, index }) => <JournalEntry key={index} entry={entry} index={index} onUpdate={update} onDelete={del} onStart={onStart} />)}
+              </div>
+            );
+          })}
+          {!entries.length && <div style={{ textAlign:"center", padding:"40px 20px", color:"#555" }}><div style={{ fontSize:28, marginBottom:8 }}>📝</div><div style={{ fontSize:13 }}>Aucune séance enregistrée.</div></div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 16 — PLANIFICATEUR DE SEMAINE
+// ══════════════════════════════════════════════════════════════
+function WeekTab({ onStart }) {
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [plan, setPlan]             = useState(() => LS.get("at_week_plan", {}));
+  const [assigning, setAssigning]   = useState(null);
+
+  const weekStart = useMemo(() => { const d = new Date(); d.setDate(d.getDate() - d.getDay() + weekOffset*7); return d; }, [weekOffset]);
+
+  const days = useMemo(() => {
+    const labels = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+    const shortMonth = ["jan","fév","mar","avr","mai","jun","jul","aoû","sep","oct","nov","déc"];
+    return Array.from({ length:7 }, (_, i) => {
+      const d = new Date(weekStart); d.setDate(weekStart.getDate()+i);
+      const ds = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+      return { index:i, label:labels[i], date:ds, dayNum:d.getDate(), monthLabel:shortMonth[d.getMonth()], isToday:ds===new Date().toISOString().slice(0,10) };
+    });
+  }, [weekStart]);
+
+  const savePlan = (u) => { setPlan(u); LS.set("at_week_plan", u); };
+  const assign = (dateStr, routine) => { savePlan({ ...plan, [dateStr]:routine }); setAssigning(null); };
+  const remove = (dateStr) => { const u = { ...plan }; delete u[dateStr]; savePlan(u); };
+
+  const journal = useMemo(() => {
+    const custom = LS.get("at_journal", []);
+    const customDates = new Set(custom.map(e => e.date+"|"+e.routine));
+    const base = BASE_JOURNAL.filter(e => !customDates.has(e.date+"|"+e.routine));
+    return [...custom, ...base];
+  }, []);
+
+  const journalDates = useMemo(() => {
+    const map = {};
+    journal.forEach(e => { if (e.date) { if (!map[e.date]) map[e.date]=[]; map[e.date].push(e); } });
+    return map;
+  }, [journal]);
+
+  const weekLabel = useMemo(() => {
+    const end = new Date(weekStart); end.setDate(weekStart.getDate()+6);
+    const sm = ["jan","fév","mar","avr","mai","jun","jul","aoû","sep","oct","nov","déc"];
+    return weekStart.getDate()+" "+sm[weekStart.getMonth()]+" — "+end.getDate()+" "+sm[end.getMonth()]+" "+end.getFullYear();
+  }, [weekStart]);
+
+  return (
+    <div>
+      {/* Navigation semaine */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+        <button onClick={() => setWeekOffset(w => w-1)} style={{ background:"none", border:"1px solid #2a2725", borderRadius:6, padding:"6px 12px", color:"#888", fontSize:14, cursor:"pointer" }}>←</button>
+        <div style={{ textAlign:"center" }}>
+          <div style={{ fontSize:14, fontWeight:700, color:"#e8e4e1" }}>{weekLabel}</div>
+          {weekOffset !== 0 && <button onClick={() => setWeekOffset(0)} style={{ background:"none", border:"none", color:"#C47A8A", fontSize:10, cursor:"pointer", marginTop:2 }}>Revenir à cette semaine</button>}
+        </div>
+        <button onClick={() => setWeekOffset(w => w+1)} style={{ background:"none", border:"1px solid #2a2725", borderRadius:6, padding:"6px 12px", color:"#888", fontSize:14, cursor:"pointer" }}>→</button>
+      </div>
+
+      {days.map(day => {
+        const planned = plan[day.date];
+        const done = journalDates[day.date] || [];
+        const hasDone = done.length > 0;
+        const tc = planned ? (rtColors[planned.type]||"#888") : "#333";
+
+        return (
+          <div key={day.date} style={{ background:"#1c1a19", border:day.isToday?"1px solid #444":"1px solid #2a2725", borderRadius:10, padding:"14px 16px", marginBottom:6 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:planned||hasDone?10:0 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                <div style={{ width:36, height:36, borderRadius:8, background:day.isToday?"#C47A8A20":"#222", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
+                  <span style={{ fontSize:14, fontWeight:700, color:day.isToday?"#C47A8A":"#888", lineHeight:1 }}>{day.dayNum}</span>
+                  <span style={{ fontSize:7, color:day.isToday?"#C47A8A":"#555", textTransform:"uppercase", fontWeight:600 }}>{day.monthLabel}</span>
+                </div>
+                <div>
+                  <div style={{ fontSize:12, fontWeight:600, color:day.isToday?"#e8e4e1":"#aaa" }}>{day.label}</div>
+                  {hasDone && <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:2 }}>
+                    <div style={{ width:6, height:6, borderRadius:3, background:"#7BB490" }} />
+                    <span style={{ fontSize:9, color:"#7BB490", fontWeight:500 }}>{done.length} séance{done.length>1?"s":""} complétée{done.length>1?"s":""}</span>
+                  </div>}
+                </div>
+              </div>
+              {!planned && <button onClick={() => setAssigning(assigning===day.date ? null : day.date)}
+                style={{ background:assigning===day.date?"#333":"none", border:"1px solid #2a2725", borderRadius:6, padding:"4px 10px", fontSize:10, color:"#666", cursor:"pointer" }}
+              >{assigning===day.date ? "Annuler" : "+ Planifier"}</button>}
+            </div>
+
+            {planned && (
+              <div style={{ background:tc+"10", border:"1px solid "+tc+"33", borderRadius:8, padding:"10px 12px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div>
+                  <div style={{ fontSize:12, fontWeight:600, color:"#e8e4e1", marginBottom:3 }}>{planned.name}</div>
+                  <div style={{ display:"flex", gap:4 }}>
+                    <Badge color={tc}>{planned.type}</Badge>
+                    <Badge color="#888">{planned.duration}</Badge>
+                  </div>
+                </div>
+                <div style={{ display:"flex", gap:4 }}>
+                  <button onClick={() => onStart(planned)} style={{ background:tc, color:"#fff", border:"none", borderRadius:6, padding:"6px 12px", fontSize:10, fontWeight:700, cursor:"pointer" }}>▶</button>
+                  <button onClick={() => remove(day.date)} style={{ background:"none", border:"none", color:"#444", fontSize:14, cursor:"pointer", padding:"2px 6px" }}>×</button>
+                </div>
+              </div>
+            )}
+
+            {hasDone && done.map((e, j) => {
+              const dc = rtColors[e.type] || "#888";
+              return (
+                <div key={j} style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 0", borderTop:j===0&&planned?"1px solid #2a2725":"none", marginTop:j===0&&planned?8:0 }}>
+                  <div style={{ width:4, height:20, borderRadius:2, background:dc, flexShrink:0 }} />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ fontSize:11, fontWeight:500, color:"#aaa", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{e.routine}</div>
+                    <div style={{ fontSize:9, color:"#555" }}>{e.type}{e.duration?" · "+e.duration:""}</div>
+                  </div>
+                  <div style={{ fontSize:9, color:"#7BB490", fontWeight:600 }}>✓</div>
+                </div>
+              );
+            })}
+
+            {assigning === day.date && (
+              <div className="fade-in" style={{ marginTop:10, paddingTop:10, borderTop:"1px solid #2a2725" }}>
+                <div style={{ fontSize:10, fontWeight:600, color:"#666", marginBottom:8, textTransform:"uppercase", letterSpacing:0.5 }}>Choisir une routine</div>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:4, maxHeight:200, overflowY:"auto" }}>
+                  {BASE_ROUTINES.map(r => {
+                    const rc = rtColors[r.type] || "#888";
+                    return (
+                      <button key={r.id} onClick={() => assign(day.date, r)}
+                        style={{ background:"#222", border:"1px solid #2a2725", borderRadius:6, padding:"8px 10px", cursor:"pointer", textAlign:"left" }}
+                      >
+                        <div style={{ fontSize:10, fontWeight:600, color:"#ccc", marginBottom:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.name}</div>
+                        <div style={{ display:"flex", gap:3 }}><Badge color={rc}>{r.type}</Badge><Badge color="#666">{r.duration}</Badge></div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 17 — STATS
+// ══════════════════════════════════════════════════════════════
+function StatsTab({ exercises, maxF }) {
+  const journal = useMemo(() => {
+    const custom = LS.get("at_journal", []);
+    const customDates = new Set(custom.map(e => e.date+"|"+e.routine));
+    const base = BASE_JOURNAL.filter(e => !customDates.has(e.date+"|"+e.routine));
+    return [...custom, ...base];
+  }, []);
+
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0,10);
+  const toLocal = (s) => { const [y,m,d] = s.split("-").map(Number); return new Date(y, m-1, d); };
+  const toStr = (d) => d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  const getWeekKey = (d) => { const w = new Date(d); w.setDate(w.getDate()-w.getDay()); return toStr(w); };
+
+  const journalStats = useMemo(() => {
+    const now = new Date();
+    const weekStr = getWeekKey(now);
+    const monthStr = now.getFullYear()+"-"+String(now.getMonth()+1).padStart(2,"0")+"-01";
+    let thisWeek=0, thisMonth=0, total=journal.length;
+    const typeCounts = {}, weekCounts = {}, monthCounts = {};
+
+    const uniqueDates = [...new Set(journal.map(e => e.date).filter(Boolean))].sort().reverse();
+    let streak = 0;
+    if (uniqueDates.length) {
+      let check = new Date(now);
+      if (!uniqueDates.includes(todayStr)) check.setDate(check.getDate()-1);
+      for (let i=0; i<365; i++) {
+        if (uniqueDates.includes(toStr(check))) { streak++; check.setDate(check.getDate()-1); } else break;
+      }
+    }
+
+    journal.forEach(e => {
+      if (!e.date) return;
+      if (e.date >= weekStr) thisWeek++;
+      if (e.date >= monthStr) thisMonth++;
+      if (e.type) typeCounts[e.type] = (typeCounts[e.type]||0)+1;
+      const d = toLocal(e.date);
+      weekCounts[getWeekKey(d)] = (weekCounts[getWeekKey(d)]||0)+1;
+      monthCounts[e.date.slice(0,7)] = (monthCounts[e.date.slice(0,7)]||0)+1;
+    });
+
+    const months = [];
+    const monthShort = ["Jan","Fév","Mar","Avr","Mai","Jun","Jul","Aoû","Sep","Oct","Nov","Déc"];
+    if (journal.length) {
+      const sorted = [...journal].sort((a,b) => a.date.localeCompare(b.date));
+      const first = toLocal(sorted[0].date);
+      let cursor = new Date(first.getFullYear(), first.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth(), 1);
+      while (cursor <= end) {
+        const mk = toStr(cursor).slice(0,7);
+        months.push({ key:mk, label:monthShort[cursor.getMonth()]+" "+String(cursor.getFullYear()).slice(2), count:monthCounts[mk]||0 });
+        cursor.setMonth(cursor.getMonth()+1);
+      }
+    }
+
+    const activeWeeks = Object.keys(weekCounts).length;
+    const avgPerWeek = activeWeeks > 0 ? (total/activeWeeks).toFixed(1) : "0";
+    const typeArr = Object.entries(typeCounts).sort((a,b) => b[1]-a[1]);
+    return { thisWeek, thisMonth, total, streak, typeArr, months, avgPerWeek };
+  }, [journal]);
+
+  const catStats = useMemo(() => {
+    const cats = {};
+    exercises.forEach(e => { cats[e.category] = (cats[e.category]||0)+e.frequency; });
+    return Object.entries(cats).sort((a,b) => b[1]-a[1]);
+  }, [exercises]);
+
+  const maxMonth = Math.max(...journalStats.months.map(m => m.count), 1);
+
+  return (
+    <div>
+      {/* Overview cards */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(70px, 1fr))", gap:6, marginBottom:20 }}>
+        {[
+          { l:"Cette semaine", v:journalStats.thisWeek,   c:"#C47A8A" },
+          { l:"Ce mois",       v:journalStats.thisMonth,  c:"#D49A64" },
+          { l:"Total",         v:journalStats.total,      c:"#5BA3B5" },
+          { l:"Streak",        v:journalStats.streak+"j", c:"#7BB490" },
+          { l:"Moy/sem",       v:journalStats.avgPerWeek, c:"#A890B8" },
+        ].map((s, i) => (
+          <div key={i} style={{ background:"#1c1a19", borderRadius:8, padding:"12px 10px", textAlign:"center" }}>
+            <div style={{ fontSize:22, fontWeight:800, color:s.c, lineHeight:1.2 }}>{s.v}</div>
+            <div style={{ fontSize:9, color:"#666", marginTop:3, fontWeight:500, textTransform:"uppercase", letterSpacing:0.8 }}>{s.l}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Histogramme mensuel */}
+      <div style={{ fontSize:12, fontWeight:600, marginBottom:10 }}>Séances par mois</div>
+      <div style={{ background:"#1c1a19", borderRadius:8, padding:"16px 14px", marginBottom:20 }}>
+        <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:100 }}>
+          {journalStats.months.map((m, i) => {
+            const h = Math.max((m.count/maxMonth)*75, m.count>0?6:2);
+            const isThisMonth = i === journalStats.months.length-1;
+            return (
+              <div key={m.key} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                <span style={{ fontSize:9, fontWeight:600, color:m.count>0?"#e8e4e1":"#555" }}>{m.count}</span>
+                <div style={{ width:"100%", height:h, background:isThisMonth?"#C47A8A":m.count>0?"#C47A8A55":"#2a2725", borderRadius:3, transition:"height 0.3s" }} />
+                <span style={{ fontSize:7, color:isThisMonth?"#C47A8A":"#555", fontWeight:isThisMonth?600:400 }}>{m.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Répartition par type */}
+      {journalStats.typeArr.length > 0 && (
+        <div>
+          <div style={{ fontSize:12, fontWeight:600, marginBottom:10 }}>Répartition par type</div>
+          <div style={{ background:"#1c1a19", borderRadius:8, padding:"12px 14px", marginBottom:20 }}>
+            {journalStats.typeArr.map(([type, count]) => {
+              const c = rtColors[type] || "#888";
+              const p = (count/journalStats.typeArr[0][1])*100;
+              return (
+                <div key={type} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5 }}>
+                  <div style={{ width:85, fontSize:10, fontWeight:500, color:"#999" }}>{type}</div>
+                  <div style={{ flex:1, height:14, background:"#2a2725", borderRadius:3, overflow:"hidden", position:"relative" }}>
+                    <div style={{ width:p+"%", height:"100%", background:c+"33", borderRadius:3 }} />
+                    <span style={{ position:"absolute", right:6, top:"50%", transform:"translateY(-50%)", fontSize:9, fontWeight:600, color:c }}>{count}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Volume par catégorie */}
+      <div style={{ fontSize:12, fontWeight:600, marginBottom:10 }}>Volume par catégorie (banque)</div>
+      <div style={{ background:"#1c1a19", borderRadius:8, padding:"12px 14px", marginBottom:20 }}>
+        {catStats.map(([cat, total]) => {
+          const c = catColors[cat] || "#888";
+          const p = (total/catStats[0][1])*100;
+          return (
+            <div key={cat} style={{ display:"flex", alignItems:"center", gap:8, marginBottom:5 }}>
+              <div style={{ width:85, fontSize:10, fontWeight:500, color:"#999" }}>{cat}</div>
+              <div style={{ flex:1, height:14, background:"#2a2725", borderRadius:3, overflow:"hidden", position:"relative" }}>
+                <div style={{ width:p+"%", height:"100%", background:c+"33", borderRadius:3 }} />
+                <span style={{ position:"absolute", right:6, top:"50%", transform:"translateY(-50%)", fontSize:9, fontWeight:600, color:c }}>{total}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Progressions */}
+      <div style={{ fontSize:12, fontWeight:600, marginBottom:10 }}>Progressions</div>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(160px, 1fr))", gap:6 }}>
+        {[
+          { name:"Hip Abduction",      s:"70",  e:"185", p:"+164%" },
+          { name:"Leg Press",          s:"150", e:"310", p:"+107%" },
+          { name:"Hack Press",         s:"200", e:"360", p:"+80%"  },
+          { name:"Leg Curl (tempo)",   s:"80",  e:"140", p:"+75%"  },
+          { name:"Leg Curl (squeeze)", s:"70",  e:"110", p:"+57%"  },
+          { name:"Hip Thrust",         s:"115", e:"175", p:"+52%"  },
+          { name:"RDL",                s:"115", e:"145", p:"+26%"  },
+          { name:"Back Squat",         s:"135", e:"155", p:"+15%"  },
+        ].map((x, i) => (
+          <div key={i} style={{ background:"#1c1a19", borderRadius:8, padding:"10px 12px" }}>
+            <div style={{ fontSize:11, fontWeight:600, color:"#ccc", marginBottom:3 }}>{x.name}</div>
+            <div style={{ fontSize:10, color:"#666" }}>{x.s} → <span style={{ color:"#7BB490", fontWeight:600 }}>{x.e} lb</span></div>
+            <div style={{ fontSize:16, fontWeight:700, color:"#7BB490", marginTop:2 }}>{x.p}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// SECTION 18 — APP PRINCIPALE
+// ══════════════════════════════════════════════════════════════
+function App() {
+  const [tab, setTab]             = useState("exercises");
+  const [search, setSearch]       = useState("");
+  const [category, setCategory]   = useState("Tous");
+  const [equipment, setEquipment] = useState("Tous");
+  const [sortBy, setSortBy]       = useState("frequency");
+  const [routineType, setRoutineType] = useState("Tous");
+  const [showAdd, setShowAdd]     = useState(false);
+  const [custom, setCustom]       = useState(() => LS.get("at_custom_ex", []));
+  const [session, setSession]     = useState(null);
+
+  const all = useMemo(() => [...BASE_EXERCISES, ...custom.map((e, i) => ({ ...e, id:"c"+i, frequency:e.frequency||1 }))], [custom]);
+  const maxF = Math.max(...all.map(e => e.frequency));
+
+  const filtered = useMemo(() => {
+    let r = all.filter(e => {
+      if (search && !e.name.toLowerCase().includes(search.toLowerCase()) && !(e.notes||"").toLowerCase().includes(search.toLowerCase())) return false;
+      if (category !== "Tous" && e.category !== category) return false;
+      if (equipment !== "Tous" && !(e.equipment||"").includes(equipment)) return false;
+      return true;
+    });
+    if (sortBy === "frequency") r.sort((a,b) => b.frequency-a.frequency);
+    else if (sortBy === "name") r.sort((a,b) => a.name.localeCompare(b.name));
+    else if (sortBy === "category") r.sort((a,b) => a.category.localeCompare(b.category)||b.frequency-a.frequency);
+    return r;
+  }, [search, category, equipment, sortBy, all]);
+
+  const filteredRt = useMemo(() => BASE_ROUTINES.filter(r => routineType==="Tous" || r.type===routineType), [routineType]);
+  const addEx = (f) => { const u = [...custom, { ...f, frequency:1 }]; setCustom(u); LS.set("at_custom_ex", u); };
+
+  const tabs = [
+    { key:"exercises", label:"Exercices" },
+    { key:"routines",  label:"Routines"  },
+    { key:"week",      label:"Semaine"   },
+    { key:"coach",     label:"Coach IA"  },
+    { key:"journal",   label:"Journal"   },
+    { key:"stats",     label:"Stats"     },
+  ];
+
+  const inp = { background:"#1c1a19", color:"#e8e4e1", border:"1px solid #2a2725", borderRadius:8, padding:"9px 12px", fontSize:12, outline:"none", cursor:"pointer", minWidth:85 };
+
+  if (session) return <SessionMode routine={session} onEnd={() => setSession(null)} />;
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#131211" }}>
+      {showAdd && <AddModal onClose={() => setShowAdd(false)} onSave={addEx} />}
+
+      {/* HEADER */}
+      <div style={{ background:"#1c1a19", borderBottom:"1px solid #2a2725", padding:"28px 20px 22px" }}>
+        <div style={{ maxWidth:900, margin:"0 auto" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
+            <div>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3 }}>
+                <div style={{ width:3, height:12, background:"#C47A8A", borderRadius:2 }} />
+                <span style={{ fontSize:10, fontWeight:600, color:"#C47A8A", letterSpacing:2, textTransform:"uppercase" }}>training database</span>
+              </div>
+              <div style={{ fontSize:22, fontWeight:700, color:"#e8e4e1", letterSpacing:-0.5 }}>Alexanne's Training</div>
+            </div>
+            <button onClick={() => setShowAdd(true)} style={{ background:"#e8e4e1", color:"#131211", border:"none", borderRadius:8, padding:"8px 16px", fontSize:12, fontWeight:700, cursor:"pointer" }}>
+              + Ajouter
+            </button>
+          </div>
+
+          {/* Mini stats header */}
+          <div style={{ display:"flex", gap:6, marginBottom:14 }}>
+            {[
+              { l:"Exercices", v:all.length,                                                                                    c:"#C47A8A" },
+              { l:"Routines",  v:BASE_ROUTINES.length,                                                                          c:"#D49A64" },
+              { l:"Séances",   v:(() => { const c=LS.get("at_journal",[]); const cd=new Set(c.map(e=>e.date+"|"+e.routine)); return c.length+BASE_JOURNAL.filter(e=>!cd.has(e.date+"|"+e.routine)).length; })(), c:"#5BA3B5" },
+            ].map((s, i) => (
+              <div key={i} style={{ background:"#222", borderRadius:6, padding:"7px 12px" }}>
+                <div style={{ fontSize:16, fontWeight:700, color:s.c, lineHeight:1.2 }}>{s.v}</div>
+                <div style={{ fontSize:9, color:"#666", marginTop:1, fontWeight:500, textTransform:"uppercase", letterSpacing:0.8 }}>{s.l}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabs */}
+          <div style={{ display:"flex", gap:2, background:"#222", borderRadius:8, padding:3, width:"fit-content", overflowX:"auto" }}>
+            {tabs.map(t => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                style={{ background:tab===t.key?"#333":"transparent", color:tab===t.key?"#e8e4e1":"#666", border:"none", borderRadius:6, padding:"7px 14px", fontSize:11, fontWeight:tab===t.key?600:500, cursor:"pointer", transition:"all 0.15s", whiteSpace:"nowrap", display:"flex", alignItems:"center", gap:4 }}
+              >
+                {t.label}
+                {t.key==="coach" && <span style={{ fontSize:8, background:"#C47A8A", color:"#fff", padding:"1px 4px", borderRadius:3, fontWeight:700 }}>IA</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* CONTENU */}
+      <div style={{ maxWidth:900, margin:"0 auto", padding:"20px 20px 80px" }}>
+
+        {/* Onglet Exercices */}
+        {tab === "exercises" && (
+          <div>
+            <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:14 }}>
+              <input type="text" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} style={{ ...inp, flex:"1 1 160px", minWidth:160 }} />
+              <select value={category} onChange={e => setCategory(e.target.value)} style={inp}>
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select value={equipment} onChange={e => setEquipment(e.target.value)} style={inp}>
+                {EQUIPMENT_LIST.map(eq => <option key={eq} value={eq}>{eq==="Tous"?"Équipement":eq}</option>)}
+              </select>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={inp}>
+                <option value="frequency">Fréquence</option>
+                <option value="name">A → Z</option>
+                <option value="category">Catégorie</option>
+              </select>
+            </div>
+            <div style={{ fontSize:11, color:"#555", marginBottom:10 }}>{filtered.length} exercice{filtered.length>1?"s":""}</div>
+            {filtered.map(ex => <ExCard key={ex.id} ex={ex} maxF={maxF} />)}
+          </div>
+        )}
+
+        {/* Onglet Routines */}
+        {tab === "routines" && (
+          <div>
+            <div style={{ display:"flex", gap:4, flexWrap:"wrap", marginBottom:14 }}>
+              {ROUTINE_TYPES.map(rt => (
+                <button key={rt} onClick={() => setRoutineType(rt)}
+                  style={{ background:routineType===rt?(rtColors[rt]||"#C47A8A")+"18":"transparent", color:routineType===rt?rtColors[rt]||"#C47A8A":"#666", border:"1px solid "+(routineType===rt?(rtColors[rt]||"#C47A8A")+"44":"#2a2725"), borderRadius:6, padding:"6px 12px", fontSize:11, fontWeight:500, cursor:"pointer" }}
+                >{rt}</button>
+              ))}
+            </div>
+            {filteredRt.map(r => <RtCard key={r.id} routine={r} onStart={setSession} />)}
+          </div>
+        )}
+
+        {tab === "week"    && <WeekTab  onStart={setSession} />}
+        {tab === "coach"   && <CoachTab pool={all} />}
+        {tab === "journal" && <JournalTab onStart={setSession} />}
+        {tab === "stats"   && <StatsTab exercises={all} maxF={maxF} />}
+      </div>
+
+      {/* FOOTER */}
+      <div style={{ borderTop:"1px solid #2a2725", padding:"16px 20px", textAlign:"center", fontSize:9, color:"#444", letterSpacing:1, textTransform:"uppercase" }}>
+        Alexanne's Training · Juin 2025 – Avril 2026
+      </div>
+
+      {/* TIMER DE REPOS FLOTTANT */}
+      <RestTimer />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
